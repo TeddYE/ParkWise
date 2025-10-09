@@ -1,4 +1,4 @@
-import { MapPin, Search, Settings, Crown, User } from 'lucide-react';
+import { MapPin, Search, Crown, User } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
