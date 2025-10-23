@@ -99,10 +99,7 @@ export class CarparkService {
       }
 
       const raw = await response.json();
-      const data =
-        typeof raw.body === "string"
-          ? JSON.parse(raw.body)
-          : raw.body;
+      const data = typeof raw.body === "string" ? JSON.parse(raw.body) : raw.body;
       const records = data.carpark_info_list || [];
 
       this.carparkInfoCache = {
@@ -165,10 +162,7 @@ export class CarparkService {
       }
 
       const raw = await response.json();
-      const data =
-        typeof raw.body === "string"
-          ? JSON.parse(raw.body)
-          : raw.body;
+      const data = typeof raw.body === "string" ? JSON.parse(raw.body) : raw.body;
       const records = data.carpark_ava || [];
 
       this.availabilityCache = {

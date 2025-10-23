@@ -35,6 +35,5 @@ export function useDarkMode() {
   return {
     isDarkMode,
     toggleDarkMode,
-    setIsDarkMode,
   };
 }

@@ -43,10 +43,7 @@ export async function login(
     }
 
     const data = await response.json();
-    const profile =
-      typeof data.profile === "string"
-        ? JSON.parse(data.profile)
-        : data.profile;
+    const profile = typeof data.profile === "string" ? JSON.parse(data.profile) : data.profile;
     const user: User = {
       user_id: data.user_id,
       name: profile?.name ?? undefined,

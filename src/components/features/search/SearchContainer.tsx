@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { cn } from '../../../utils/cn';
 
 interface SearchContainerProps {
   children: ReactNode;
@@ -7,7 +8,7 @@ interface SearchContainerProps {
 
 export function SearchContainer({ children, className }: SearchContainerProps) {
   return (
-    <div className={`w-full h-full ${className || ''}`}>
+    <div className={cn("w-full h-full", className)}>
       {children}
     </div>
   );

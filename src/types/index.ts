@@ -58,3 +58,45 @@ export interface AuthState {
   isAuthenticated: boolean;
   loading: boolean;
 }
+
+// API Types
+export interface ApiResponse<T> {
+  data: T;
+  success: boolean;
+  error?: string;
+  metadata?: {
+    timestamp: Date;
+    source: string;
+    cached: boolean;
+  };
+}
+
+export enum ApiErrorType {
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  TIMEOUT_ERROR = 'TIMEOUT_ERROR',
+  VALIDATION_ERROR = 'VALIDATION_ERROR',
+  AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
+  AUTHORIZATION_ERROR = 'AUTHORIZATION_ERROR',
+  SERVER_ERROR = 'SERVER_ERROR',
+  UNKNOWN_ERROR = 'UNKNOWN_ERROR'
+}
+
+export interface ApiError {
+  type: ApiErrorType;
+  message: string;
+  details?: unknown;
+  retryable: boolean;
+}
+
+// Cache Types
+export interface CacheConfig {
+  ttl: number;
+  maxSize: number;
+  strategy: 'LRU' | 'FIFO' | 'TTL';
+}
+
+export interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttl: number;
+}

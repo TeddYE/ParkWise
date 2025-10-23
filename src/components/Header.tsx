@@ -46,8 +46,7 @@ export function Header({ currentView, onViewChange, onBackToHome, isPremium, use
           aria-label="Go to home page"
         >
           <MapPin className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-semibold text-primary hidden sm:block">ParkWise</h1>
-          <h1 className="text-xl font-semibold text-primary sm:hidden">ParkWise</h1>
+          <h1 className="text-xl font-semibold text-primary">ParkWise</h1>
         </button>
         {isPremium && (
           <>
