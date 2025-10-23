@@ -137,6 +137,23 @@ export async function updateFavoriteCarparks(
   }
 }
 
+export function isSubscriptionActive(
+  user: User | null,
+): boolean {
+  if (!user || user.subscription !== "premium") {
+    return false;
+  }
+
+  if (!user.subscriptionExpiry) {
+    return false;
+  }
+
+  const expiryDate = new Date(user.subscriptionExpiry);
+  const now = new Date();
+
+  return expiryDate > now;
+}
+
 export function getSubscriptionDaysRemaining(
   user: User | null,
 ): number {

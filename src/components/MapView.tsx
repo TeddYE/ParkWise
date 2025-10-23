@@ -217,7 +217,7 @@ export function MapView({
     if (event) {
       event.stopPropagation();
     }
-    
+
     if (!user || !onUpdateUser) {
       toast.error('Please login to save favorites', {
         dismissible: true,
@@ -226,25 +226,25 @@ export function MapView({
       onViewChange('login');
       return;
     }
-    
+
     const currentFavorites = user.favoriteCarparks || [];
     const isFavorite = currentFavorites.includes(carparkId);
     const updatedFavorites = isFavorite
       ? currentFavorites.filter(id => id !== carparkId)
       : [...currentFavorites, carparkId];
-    
+
     // Optimistically update UI
     onUpdateUser({
       ...user,
       favoriteCarparks: updatedFavorites,
     });
-    
+
     // Call API to update favorites
     const response = await updateFavoriteCarparks({
       user_id: user.user_id,
       fav_carparks: updatedFavorites,
     });
-    
+
     if (response.success) {
       toast.success(isFavorite ? 'Removed from favorites' : 'Added to favorites', {
         dismissible: true,
@@ -383,22 +383,22 @@ export function MapView({
 
     // Apply lot type filter (free feature)
     if (selectedLotTypes.length > 0) {
-      filtered = filtered.filter((carpark) => 
+      filtered = filtered.filter((carpark) =>
         selectedLotTypes.includes(carpark.lot_type)
       );
     }
 
     // Apply carpark type filter (free feature)
     if (selectedCarparkTypes.length > 0) {
-      filtered = filtered.filter((carpark) => 
+      filtered = filtered.filter((carpark) =>
         selectedCarparkTypes.includes(carpark.car_park_type)
       );
     }
 
     // Apply payment method filter (free feature)
     if (selectedPaymentMethods.length > 0) {
-      filtered = filtered.filter((carpark) => 
-        carpark.paymentMethods.some(method => 
+      filtered = filtered.filter((carpark) =>
+        carpark.paymentMethods.some(method =>
           selectedPaymentMethods.includes(method)
         )
       );
@@ -779,7 +779,7 @@ export function MapView({
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <h3>
-                {searchLocation 
+                {searchLocation
                   ? `Within ${searchRadius[0]}km (${carparksInBounds.length})`
                   : searchQuery && !isPostalCode(searchQuery)
                   ? `Search Results (${carparksInBounds.length})`
@@ -834,7 +834,7 @@ export function MapView({
                           className="h-7 w-7"
                           onClick={(e) => handleToggleFavorite(carpark.id, e)}
                         >
-                          <Heart 
+                          <Heart
                             className={`w-4 h-4 ${user?.favoriteCarparks?.includes(carpark.id) ? 'fill-red-500 text-red-500' : ''}`}
                           />
                         </Button>

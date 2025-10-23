@@ -105,7 +105,7 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
 
       onUpdateUser(updatedUser);
       setIsEditDialogOpen(false);
-      
+
       toast.success('Profile updated successfully', {
         dismissible: true,
         closeButton: true,
@@ -184,17 +184,17 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
                 )}
               </div>
               <p className="text-muted-foreground mb-6">{user.email || user.user_id}</p>
-              
+
               <div className="flex flex-wrap items-center gap-3">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => setIsEditDialogOpen(true)}
                 >
                   <Edit2 className="w-4 h-4 mr-2" />
                   Edit Profile
                 </Button>
-                <Button 
+                <Button
                   variant="outline" 
                   size="sm"
                   onClick={() => onViewChange('pricing')}
@@ -451,7 +451,7 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
               Update your account information and password
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {/* Name */}
             <div className="space-y-2">
@@ -480,7 +480,7 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
 
             <div className="space-y-3">
               <h4 className="text-sm">Change Password (Optional)</h4>
-              
+
               {/* Current Password */}
               <div className="space-y-2">
                 <Label htmlFor="current-password">Current Password</Label>

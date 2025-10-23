@@ -42,7 +42,7 @@ export class CarparkService {
     24 * 60 * 60 * 1000; // 24 hours - for static data like total slots, rates, addresses
   private static readonly AVAILABILITY_CACHE_DURATION =
     60 * 1000; // 1 minute - for dynamic availability data (use manual refresh to update)
-  
+
   /**
    * Clears all cached data to force a fresh fetch on next request
    */
@@ -113,7 +113,7 @@ export class CarparkService {
       console.log(
         `Cached ${records.length} carpark info records`,
       );
-      
+
       // Log sample record to verify data structure
       if (records.length > 0) {
         console.log('Sample carpark info record:', {
@@ -123,7 +123,7 @@ export class CarparkService {
           active_cap_amount: records[0].active_cap_amount
         });
       }
-      
+
       return records;
     } catch (error) {
       console.error("Failed to fetch carpark info:", error);
@@ -224,18 +224,18 @@ export class CarparkService {
     const uniqueInfoRecords = Array.from(
       uniqueInfoMap.values(),
     );
-    
+
     // Count how many carparks have real data
     let carparksWith_total_lots = 0;
     let carparksWith_rates = 0;
     let carparksWith_cap = 0;
-    
+
     uniqueInfoRecords.forEach((info) => {
       if (info.total_lots) carparksWith_total_lots++;
       if (info.current_rate_30min) carparksWith_rates++;
       if (info.active_cap_amount) carparksWith_cap++;
     });
-    
+
     console.log('Data coverage:', {
       totalCarparks: uniqueInfoRecords.length,
       withTotalLots: carparksWith_total_lots,
@@ -252,20 +252,20 @@ export class CarparkService {
       );
 
       // Use API data for total lots, set to null if not available
-      const totalLots = info.total_lots && !isNaN(Number(info.total_lots)) 
-        ? Number(info.total_lots) 
+      const totalLots = info.total_lots && !isNaN(Number(info.total_lots))
+        ? Number(info.total_lots)
         : null;
-      
+
       // Use the 30-minute rate directly from API (rates.hourly actually stores the 30-min rate)
       const rate30min = info.current_rate_30min && !isNaN(Number(info.current_rate_30min))
         ? Number(info.current_rate_30min)
         : 0;
-      
+
       // Use active_cap_amount as daily rate (cap amount)
       const dailyRate = info.active_cap_amount && !isNaN(Number(info.active_cap_amount))
-        ? Number(info.active_cap_amount) 
+        ? Number(info.active_cap_amount)
         : 0;
-      
+
       // Parse payment methods from type_of_parking_system
       const paymentMethods: string[] = [];
       if (info.type_of_parking_system) {

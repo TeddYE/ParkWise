@@ -321,7 +321,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
       const availabilityPercentage = carpark.totalLots !== null && carpark.totalLots > 0
         ? (carpark.availableLots / carpark.totalLots) * 100
         : 0;
-      
+
       // Use the distance and driving time from the carpark data
       // (which may already include real driving times from OSRM)
       // If no user location, these will be undefined

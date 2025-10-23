@@ -58,8 +58,8 @@ export default defineConfig({
   plugins: [
     react(), 
     tailwindcss(), 
-    figmaAssetsResolver(), 
-    removeVersionSpecifiers(), 
+    figmaAssetsResolver(),
+    removeVersionSpecifiers(),
     ...(produceSingleFile ? [viteSingleFile()] : [])
   ],
 })

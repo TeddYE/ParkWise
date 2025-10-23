@@ -40,6 +40,16 @@ export function validatePassword(password: string): PasswordValidationResult {
 }
 
 /**
+ * Validates an email address format
+ * @param email - The email to validate
+ * @returns true if valid, false otherwise
+ */
+export function validateEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
  * Checks if two passwords match
  * @param password - The password
  * @param confirmPassword - The confirmation password

@@ -104,7 +104,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
           const bTotal = b.totalLots || 1;
           return (b.availableLots / bTotal) - (a.availableLots / aTotal);
         }
-        case 'distance': 
+        case 'distance':
         default: 
           // Handle undefined distances (put them at the end)
           if (a.distance === undefined && b.distance === undefined) return 0;
