@@ -1,4 +1,4 @@
-import { MapPin, Search, Settings, Crown, User, LogOut, Moon, Sun, Menu } from 'lucide-react';
+import { MapPin, Search, Crown, User, LogOut, Moon, Sun, Menu } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { 
@@ -46,7 +46,8 @@ export function Header({ currentView, onViewChange, onBackToHome, isPremium, use
           aria-label="Go to home page"
         >
           <MapPin className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-semibold text-primary">ParkWise</h1>
+          <h1 className="text-xl font-semibold text-primary hidden sm:block">ParkWise</h1>
+          <h1 className="text-xl font-semibold text-primary sm:hidden">ParkWise</h1>
         </button>
         {isPremium && (
           <>
@@ -134,10 +135,6 @@ export function Header({ currentView, onViewChange, onBackToHome, isPremium, use
               <DropdownMenuItem onClick={() => onViewChange('profile')}>
                 <User className="w-4 h-4 mr-2" />
                 My Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onViewChange('pricing')}>
-                <Settings className="w-4 h-4 mr-2" />
-                Plans & Billing
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onSignOut}>
@@ -245,14 +242,6 @@ export function Header({ currentView, onViewChange, onBackToHome, isPremium, use
                   >
                     <User className="w-4 h-4 mr-2" />
                     My Profile
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleNavigation('pricing')}
-                    className="w-full justify-start"
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Plans & Billing
                   </Button>
                   <Button
                     variant="ghost"

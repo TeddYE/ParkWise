@@ -40,6 +40,8 @@ export default function App() {
     toast.info("Signed out successfully", {
       description:
         "You can still use free features without an account.",
+      dismissible: true,
+      closeButton: true,
     });
   };
 
@@ -83,6 +85,8 @@ export default function App() {
         authUser.subscription === "premium"
           ? "You have premium access to all features."
           : "Enjoy free features. Upgrade to premium for more!",
+      dismissible: true,
+      closeButton: true,
     });
   };
 
@@ -148,6 +152,8 @@ export default function App() {
             onViewChange={handleViewChange}
             onSelectCarpark={handleSelectCarpark}
             isPremium={isPremium}
+            user={user}
+            onUpdateUser={updateUser}
           />
         )}
 

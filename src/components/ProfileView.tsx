@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
-import { User, Heart, Crown, Calendar, MapPin, Navigation, Trash2, ArrowLeft } from 'lucide-react';
+import { User, Heart, Crown, Calendar, MapPin, Navigation, Trash2, ArrowLeft, Edit2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback } from './ui/avatar';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { User as UserType, Carpark, ViewType } from '../types';
 import { useCarparks } from '../hooks/useCarparks';
 import { toast } from "sonner";
 import { getSubscriptionDaysRemaining, updateFavoriteCarparks } from '../services/updateProfileService';
+import { validatePassword } from '../utils/validation';
 
 interface ProfileViewProps {
   user: UserType;
@@ -20,6 +24,16 @@ interface ProfileViewProps {
 export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark }: ProfileViewProps) {
   const { carparks, loading } = useCarparks();
   const [favoriteCarparks, setFavoriteCarparks] = useState<Carpark[]>([]);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editName, setEditName] = useState(user.name || '');
+  const [editEmail, setEditEmail] = useState(user.email || user.user_id);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     if (carparks.length > 0 && user.favoriteCarparks) {
@@ -49,6 +63,65 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
       // Revert on failure
       onUpdateUser(user);
       toast.error(response.error || 'Failed to update favorites');
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    // Validate inputs
+    if (!editName.trim()) {
+      toast.error('Name cannot be empty');
+      return;
+    }
+
+    // If password fields are filled, validate them
+    if (newPassword || confirmPassword) {
+      if (!currentPassword) {
+        toast.error('Please enter your current password');
+        return;
+      }
+
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.isValid) {
+        toast.error(passwordValidation.errors[0]);
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        toast.error('New passwords do not match');
+        return;
+      }
+    }
+
+    setIsUpdating(true);
+
+    try {
+      // In a real app, this would call an API to update the profile
+      // For now, we'll just update locally
+      const updatedUser = {
+        ...user,
+        name: editName,
+        email: editEmail,
+      };
+
+      onUpdateUser(updatedUser);
+      setIsEditDialogOpen(false);
+
+      toast.success('Profile updated successfully', {
+        dismissible: true,
+        closeButton: true,
+      });
+
+      // Clear password fields
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      toast.error('Failed to update profile', {
+        dismissible: true,
+        closeButton: true,
+      });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -110,10 +183,18 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
                   </Badge>
                 )}
               </div>
-              <p className="text-muted-foreground mb-6">{user.email}</p>
-              
+              <p className="text-muted-foreground mb-6">{user.email || user.user_id}</p>
+
               <div className="flex flex-wrap items-center gap-3">
-                <Button 
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditDialogOpen(true)}
+                >
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  Edit Profile
+                </Button>
+                <Button
                   variant="outline" 
                   size="sm"
                   onClick={() => onViewChange('pricing')}
@@ -275,7 +356,7 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
                       {carpark.address}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      S${carpark.rates.hourly.toFixed(2)}/hr
+                      S${carpark.rates.hourly.toFixed(2)}/30min
                     </p>
                   </div>
                   
@@ -360,6 +441,157 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
         </CardContent>
       </Card>
       </div>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogDescription>
+              Update your account information and password
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Enter your name"
+              />
+            </div>
+
+            {/* Email */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                placeholder="Enter your email"
+              />
+            </div>
+
+            <Separator className="my-4" />
+
+            <div className="space-y-3">
+              <h4 className="text-sm">Change Password (Optional)</h4>
+
+              {/* Current Password */}
+              <div className="space-y-2">
+                <Label htmlFor="current-password">Current Password</Label>
+                <div className="relative">
+                  <Input
+                    id="current-password"
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  >
+                    {showCurrentPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* New Password */}
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                  >
+                    {showNewPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Confirm New Password */}
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditDialogOpen(false);
+                setEditName(user.name || '');
+                setEditEmail(user.email || user.user_id);
+                setCurrentPassword('');
+                setNewPassword('');
+                setConfirmPassword('');
+              }}
+              disabled={isUpdating}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveProfile} disabled={isUpdating}>
+              {isUpdating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

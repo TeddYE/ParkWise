@@ -16,6 +16,9 @@ interface CarparkInfoResponse {
   car_park_type: string;
   type_of_parking_system: string;
   lot_type: string;
+  total_lots?: number;
+  current_rate_30min?: number;
+  active_cap_amount?: number;
 }
 
 interface CarparkAvailabilityResponse {
@@ -36,9 +39,18 @@ export class CarparkService {
     CarparkAvailabilityResponse[]
   > | null = null;
   private static readonly INFO_CACHE_DURATION =
-    24 * 60 * 60 * 1000;
+    24 * 60 * 60 * 1000; // 24 hours - for static data like total slots, rates, addresses
   private static readonly AVAILABILITY_CACHE_DURATION =
-    60 * 1000;
+    60 * 1000; // 1 minute - for dynamic availability data (use manual refresh to update)
+
+  /**
+   * Clears all cached data to force a fresh fetch on next request
+   */
+  static clearCache(): void {
+    console.log('Clearing carpark data cache...');
+    this.carparkInfoCache = null;
+    this.availabilityCache = null;
+  }
 
   static async fetchCarparks(): Promise<Carpark[]> {
     try {
@@ -101,6 +113,17 @@ export class CarparkService {
       console.log(
         `Cached ${records.length} carpark info records`,
       );
+
+      // Log sample record to verify data structure
+      if (records.length > 0) {
+        console.log('Sample carpark info record:', {
+          carpark_number: records[0].carpark_number,
+          total_lots: records[0].total_lots,
+          current_rate_30min: records[0].current_rate_30min,
+          active_cap_amount: records[0].active_cap_amount
+        });
+      }
+
       return records;
     } catch (error) {
       console.error("Failed to fetch carpark info:", error);
@@ -202,6 +225,24 @@ export class CarparkService {
       uniqueInfoMap.values(),
     );
 
+    // Count how many carparks have real data
+    let carparksWith_total_lots = 0;
+    let carparksWith_rates = 0;
+    let carparksWith_cap = 0;
+
+    uniqueInfoRecords.forEach((info) => {
+      if (info.total_lots) carparksWith_total_lots++;
+      if (info.current_rate_30min) carparksWith_rates++;
+      if (info.active_cap_amount) carparksWith_cap++;
+    });
+
+    console.log('Data coverage:', {
+      totalCarparks: uniqueInfoRecords.length,
+      withTotalLots: carparksWith_total_lots,
+      withRates: carparksWith_rates,
+      withCapAmount: carparksWith_cap
+    });
+
     return uniqueInfoRecords.map((info) => {
       const availableLots =
         Number(availabilityMap.get(info.carpark_number)) || 0;
@@ -209,6 +250,40 @@ export class CarparkService {
         Number(info.x_coord),
         Number(info.y_coord),
       );
+
+      // Use API data for total lots, set to null if not available
+      const totalLots = info.total_lots && !isNaN(Number(info.total_lots))
+        ? Number(info.total_lots)
+        : null;
+
+      // Use the 30-minute rate directly from API (rates.hourly actually stores the 30-min rate)
+      const rate30min = info.current_rate_30min && !isNaN(Number(info.current_rate_30min))
+        ? Number(info.current_rate_30min)
+        : 0;
+
+      // Use active_cap_amount as daily rate (cap amount)
+      const dailyRate = info.active_cap_amount && !isNaN(Number(info.active_cap_amount))
+        ? Number(info.active_cap_amount)
+        : 0;
+
+      // Parse payment methods from type_of_parking_system
+      const paymentMethods: string[] = [];
+      if (info.type_of_parking_system) {
+        const system = info.type_of_parking_system.toUpperCase();
+        if (system.includes('ELECTRONIC') || system.includes('EPS')) {
+          paymentMethods.push('Electronic');
+        }
+        if (system.includes('COUPON')) {
+          paymentMethods.push('Coupon');
+        }
+        if (system.includes('GIRO')) {
+          paymentMethods.push('GIRO');
+        }
+      }
+      // If no specific payment method found, default based on type
+      if (paymentMethods.length === 0) {
+        paymentMethods.push('Electronic'); // Default for most modern carparks
+      }
 
       return {
         id: info.carpark_number,
@@ -220,19 +295,19 @@ export class CarparkService {
           lat: lat,
           lng: lng,
         },
-        totalLots: 300,
+        totalLots: totalLots,
         availableLots: availableLots,
         evLots: 0,
         availableEvLots: 0,
         rates: {
-          hourly: 0,
-          daily: 0,
+          hourly: rate30min, // Note: 'hourly' property actually stores the 30-min rate from API
+          daily: dailyRate,
           evCharging: 0,
         },
         type: "HDB",
         features: [],
         operatingHours: "24 hours",
-        paymentMethods: [],
+        paymentMethods: paymentMethods,
         car_park_type: info.car_park_type,
         type_of_parking_system: info.type_of_parking_system,
         lot_type: info.lot_type,

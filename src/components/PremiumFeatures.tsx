@@ -207,11 +207,11 @@ export function PremiumFeatures({ isPremium, onViewChange }: PremiumFeaturesProp
                           </div>
                           <div className="flex justify-between">
                             <span>Rate</span>
-                            <span>S${carpark.rates.hourly}/hr</span>
+                            <span>S${carpark.rates.hourly}/30min</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Availability</span>
-                            <span>{carpark.availableLots}/{carpark.totalLots}</span>
+                            <span>{carpark.availableLots}/{carpark.totalLots !== null ? carpark.totalLots : 'N/A'}</span>
                           </div>
                         </div>
                         <Button className="w-full mt-3" size="sm">

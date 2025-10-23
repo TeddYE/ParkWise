@@ -2,11 +2,9 @@ import {
   ArrowLeft, 
   Navigation, 
   Car, 
-  Zap, 
   Clock, 
   DollarSign, 
   MapPin, 
-  CreditCard,
   Star,
   Heart
 } from 'lucide-react';
@@ -30,7 +28,10 @@ interface CarparkDetailsProps {
 }
 
 export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user, onUpdateUser }: CarparkDetailsProps) {
-  const getAvailabilityStatus = (available: number, total: number) => {
+  const getAvailabilityStatus = (available: number, total: number | null) => {
+    if (total === null || total === 0) {
+      return { text: 'Unknown', color: 'bg-gray-100 text-gray-800' };
+    }
     const percentage = (available / total) * 100;
     if (percentage > 30) return { text: 'Good Availability', color: 'bg-green-100 text-green-800' };
     if (percentage > 10) return { text: 'Limited Availability', color: 'bg-yellow-100 text-yellow-800' };
@@ -84,9 +85,9 @@ export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user,
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl truncate">{getCarparkDisplayName(carpark)}</h1>
+            <h1 className="text-xl sm:text-2xl break-words">{getCarparkDisplayName(carpark)}</h1>
             {carpark.name && carpark.name.trim() !== '' && (
-              <p className="text-muted-foreground text-sm sm:text-base line-clamp-2">{carpark.address}</p>
+              <p className="text-muted-foreground text-sm sm:text-base break-words">{carpark.address}</p>
             )}
           </div>
         </div>
@@ -121,7 +122,7 @@ export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user,
                 <div className="text-center p-4 bg-muted rounded-lg">
                   <div className="text-2xl mb-1">{carpark.availableLots}</div>
                   <div className="text-sm text-muted-foreground">Regular Lots Available</div>
-                  <div className="text-xs text-muted-foreground">of {carpark.totalLots} total</div>
+                  <div className="text-xs text-muted-foreground">of {carpark.totalLots !== null ? carpark.totalLots : 'N/A'} total</div>
                 </div>
                 {carpark.evLots > 0 && (
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
@@ -145,7 +146,7 @@ export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user,
             <CardContent>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span>Hourly Rate</span>
+                  <span>Per 30 Minutes</span>
                   <span>S${carpark.rates.hourly.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
@@ -204,12 +205,35 @@ export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user,
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                <span>Operating Hours: {carpark.operatingHours}</span>
+                <Car className="w-4 h-4" />
+                <div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Type: </span>
+                    <span>{carpark.car_park_type || 'N/A'}</span>
+                  </div>
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4" />
-                <span>Payment: {carpark.paymentMethods.join(', ')}</span>
+                <MapPin className="w-4 h-4" />
+                <div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">System: </span>
+                    <span>{carpark.type_of_parking_system || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Car className="w-4 h-4" />
+                <div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Lot Type: </span>
+                    <span>{carpark.lot_type || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                <span>Operating Hours: {carpark.operatingHours}</span>
               </div>
             </CardContent>
           </Card>

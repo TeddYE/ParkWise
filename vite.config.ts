@@ -31,6 +31,25 @@ function removeVersionSpecifiers(): Plugin {
 }
 
 
+/**
+ * A custom Vite plugin to resolve imports with the "figma:assets/" prefix.
+ */
+function figmaAssetsResolver(): Plugin {
+  const FIGMA_ASSETS_PREFIX = 'figma:asset/';
+
+  return {
+    name: 'figma-assets-resolver',
+
+    resolveId(id: string) {
+      if (id.startsWith(FIGMA_ASSETS_PREFIX)) {
+        const assetPath = id.substring(FIGMA_ASSETS_PREFIX.length);
+        return path.resolve(__dirname, './src/assets', assetPath);
+      }
+      return null;
+    },
+  };
+}
+
 
 const produceSingleFile = process.env.SINGLE_FILE === 'true'
 
@@ -39,7 +58,8 @@ export default defineConfig({
   plugins: [
     react(), 
     tailwindcss(), 
-    removeVersionSpecifiers(), 
+    figmaAssetsResolver(),
+    removeVersionSpecifiers(),
     ...(produceSingleFile ? [viteSingleFile()] : [])
   ],
 })

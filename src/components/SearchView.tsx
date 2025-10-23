@@ -99,8 +99,12 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
     .sort((a, b) => {
       switch (sortBy) {
         case 'price': return a.rates.hourly - b.rates.hourly;
-        case 'availability': return (b.availableLots / b.totalLots) - (a.availableLots / a.totalLots);
-        case 'distance': 
+        case 'availability': {
+          const aTotal = a.totalLots || 1;
+          const bTotal = b.totalLots || 1;
+          return (b.availableLots / bTotal) - (a.availableLots / aTotal);
+        }
+        case 'distance':
         default: 
           // Handle undefined distances (put them at the end)
           if (a.distance === undefined && b.distance === undefined) return 0;
@@ -110,7 +114,8 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
       }
     });
 
-  const getAvailabilityColor = (available: number, total: number) => {
+  const getAvailabilityColor = (available: number, total: number | null) => {
+    if (total === null || total === 0) return 'text-gray-400';
     const percentage = (available / total) * 100;
     if (percentage > 30) return 'text-green-600';
     if (percentage > 10) return 'text-yellow-600';
@@ -197,7 +202,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
 
                 {/* Price */}
                 <div>
-                  <label className="text-sm mb-2 block">Max Price: S${maxPrice[0]}/hr</label>
+                  <label className="text-sm mb-2 block">Max Price: S${maxPrice[0]}/30min</label>
                   <Slider
                     value={maxPrice}
                     onValueChange={setMaxPrice}
@@ -325,7 +330,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
                   <div className="flex items-center gap-2">
                     <Car className="w-4 h-4" />
                     <span className={`text-sm ${getAvailabilityColor(carpark.availableLots, carpark.totalLots)}`}>
-                      {carpark.availableLots}/{carpark.totalLots} lots
+                      {carpark.availableLots}/{carpark.totalLots !== null ? carpark.totalLots : 'N/A'} lots
                     </span>
                   </div>
                   {carpark.evLots > 0 && (
@@ -347,7 +352,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
                 </div>
                 <div className="flex items-center gap-1">
                   <DollarSign className="w-3 h-3" />
-                  <span>S${carpark.rates.hourly}/hr</span>
+                  <span>S${carpark.rates.hourly}/30min</span>
                 </div>
               </div>
 
