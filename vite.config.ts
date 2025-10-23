@@ -61,6 +61,6 @@ export default defineConfig({
     figmaAssetsResolver(),
     removeVersionSpecifiers(),
     ...(produceSingleFile ? [viteSingleFile()] : [])
-  ],
+  ], base: "/ParkWise"
 })
 
