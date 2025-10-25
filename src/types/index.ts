@@ -156,3 +156,60 @@ export interface MapState {
   zoom: number;
   center: SearchLocation | null;
 }
+
+// API Response Types
+export interface CarparkInfoApiResponse {
+  carpark_number: string;
+  name: string;
+  address: string;
+  x_coord: number;
+  y_coord: number;
+  car_park_type: string;
+  type_of_parking_system: string;
+  lot_type: string;
+  total_lots?: number;
+  current_rate_30min?: number;
+  active_cap_amount?: number;
+}
+
+export interface CarparkAvailabilityApiResponse {
+  carpark_number: string;
+  lots_available: string;
+  timestamp?: string;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface SignupCredentials {
+  email: string;
+  password: string;
+}
+
+export interface LoginApiResponse {
+  user_id: string;
+  profile: string | {
+    name?: string;
+    is_premium?: string;
+    subscriptionExpiry?: string;
+    favoriteCarparks?: string[];
+  };
+}
+
+export interface SignupApiResponse {
+  user_id: string;
+  profile?: {
+    name?: string;
+    is_premium?: string;
+    subscriptionExpiry?: string;
+    favoriteCarparks?: string[];
+  };
+  error?: string;
+}
+
+export interface AuthResponse {
+  user?: User;
+  error?: string;
+}

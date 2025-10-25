@@ -12,4 +12,4 @@ export type {
   AuthResponse,
   CacheEntry,
   CacheConfig
-} from '../types';
+} from '@/types';

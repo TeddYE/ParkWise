@@ -1,4 +1,4 @@
-import { ApiResponse, ApiError, ApiErrorType } from '../types';
+import { ApiResponse, ApiError, ApiErrorType } from '@/types';
 
 // Default configuration
 const DEFAULT_TIMEOUT = 10000; // 10 seconds
@@ -18,6 +18,14 @@ interface RequestConfig extends RequestInit {
 export class ErrorHandler {
   static handleApiError(error: unknown): ApiError {
     if (error instanceof TypeError) {
+      // Check if it's a CORS error
+      if (error.message.includes('CORS') || error.message.includes('cross-origin')) {
+        return {
+          type: ApiErrorType.NETWORK_ERROR,
+          message: 'CORS error: Unable to access external API from browser.',
+          retryable: false,
+        };
+      }
       return {
         type: ApiErrorType.NETWORK_ERROR,
         message: 'Network error. Please check your connection.',
@@ -112,12 +120,17 @@ class ApiClient {
 
   // Request interceptor
   private async interceptRequest(url: string, config: RequestConfig): Promise<[string, RequestConfig]> {
+    // If headers are explicitly set to empty object, respect that (like original carpark API)
+    const useEmptyHeaders = config.headers && Object.keys(config.headers).length === 0;
+    
     const finalConfig: RequestConfig = {
       ...config,
-      headers: {
+      headers: useEmptyHeaders ? {} : {
         ...DEFAULT_HEADERS,
         ...config.headers,
       },
+      // Add CORS mode for cross-origin requests
+      mode: 'cors',
     };
 
     return [url, finalConfig];

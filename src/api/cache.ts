@@ -1,4 +1,4 @@
-import { CacheConfig, CacheEntry } from '../types';
+import { CacheConfig, CacheEntry } from '@/types';
 
 // LRU Cache implementation
 class LRUCache<T> {

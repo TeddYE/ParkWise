@@ -1,5 +1,355 @@
-// Placeholder for carpark data transformation
-// Will be implemented in Phase 3
-export const carparkTransformer = {
-  // TODO: Implement data transformation logic
-};
+import { Carpark, CarparkInfoApiResponse, CarparkAvailabilityApiResponse } from '@/types';
+
+/**
+ * Coordinate transformation utilities
+ */
+export class CoordinateTransformer {
+  /**
+   * Convert SVY21 coordinates to WGS84 (latitude/longitude)
+   * @param x SVY21 X coordinate
+   * @param y SVY21 Y coordinate
+   * @returns WGS84 coordinates
+   */
+  static svy21ToWgs84(x: number, y: number): { lat: number; lng: number } {
+    try {
+      // SVY21 to WGS84 conversion constants
+      const a = 6378137.0;
+      const f = 1 / 298.257223563;
+      const oLatDeg = 1.366666;
+      const oLonDeg = 103.833333;
+      const oN = 38744.572;
+      const oE = 28001.642;
+      const k = 1.0;
+
+      const b = a * (1 - f);
+      const e2 = 2 * f - f * f;
+      const n = (a - b) / (a + b);
+      const n2 = n * n;
+      const n3 = n2 * n;
+      const n4 = n2 * n2;
+
+      const deg2rad = (d: number) => (d * Math.PI) / 180;
+      const rad2deg = (r: number) => (r * 180) / Math.PI;
+
+      const e4 = e2 * e2;
+      const e6 = e4 * e2;
+      const A0 = 1 - e2 / 4 - (3 * e4) / 64 - (5 * e6) / 256;
+      const A2 = (3 / 8) * (e2 + e4 / 4 + (15 * e6) / 128);
+      const A4 = (15 / 256) * (e4 + (3 * e6) / 4);
+      const A6 = (35 * e6) / 3072;
+
+      const calcM = (latDeg: number) => {
+        const φ = deg2rad(latDeg);
+        return (
+          a *
+          (A0 * φ -
+            A2 * Math.sin(2 * φ) +
+            A4 * Math.sin(4 * φ) -
+            A6 * Math.sin(6 * φ))
+        );
+      };
+
+      const Eprime = x - oE;
+      const Nprime = y - oN;
+
+      const Mo = calcM(oLatDeg);
+      const Mprime = Mo + Nprime / k;
+
+      const G =
+        a *
+        (1 - n) *
+        (1 - n2) *
+        (1 + (9 * n2) / 4 + (225 * n4) / 64) *
+        (Math.PI / 180);
+      const sigma = (Mprime * Math.PI) / (180 * G);
+
+      const latPrime =
+        sigma +
+        ((3 * n) / 2 - (27 * n3) / 32) * Math.sin(2 * sigma) +
+        ((21 * n2) / 16 - (55 * n4) / 32) * Math.sin(4 * sigma) +
+        ((151 * n3) / 96) * Math.sin(6 * sigma) +
+        ((1097 * n4) / 512) * Math.sin(8 * sigma);
+
+      const sinLatP = Math.sin(latPrime);
+      const sin2LatP = sinLatP * sinLatP;
+
+      const rhoP = (a * (1 - e2)) / Math.pow(1 - e2 * sin2LatP, 1.5);
+      const vP = a / Math.sqrt(1 - e2 * sin2LatP);
+      const psiP = vP / rhoP;
+      const psiP2 = psiP * psiP;
+      const psiP3 = psiP2 * psiP;
+      const psiP4 = psiP3 * psiP;
+
+      const tP = Math.tan(latPrime);
+      const tP2 = tP * tP;
+      const tP4 = tP2 * tP2;
+      const tP6 = tP4 * tP2;
+
+      const xSmall = Eprime / (k * vP);
+      const x2 = xSmall * xSmall;
+      const x3 = x2 * xSmall;
+      const x5 = x3 * x2;
+      const x7 = x5 * x2;
+
+      const latFactor = tP / (k * rhoP);
+      const latTerm1 = latFactor * ((Eprime * xSmall) / 2);
+      const latTerm2 =
+        latFactor *
+        ((Eprime * x3) / 24) *
+        (-4 * psiP2 + 9 * psiP * (1 - tP2) + 12 * tP2);
+      const latTerm3 =
+        latFactor *
+        ((Eprime * x5) / 720) *
+        (8 * psiP4 * (11 - 24 * tP2) -
+          12 * psiP3 * (21 - 71 * tP2) +
+          15 * psiP2 * (15 - 98 * tP2 + 15 * tP4) +
+          180 * psiP * (5 * tP2 - 3 * tP4) +
+          360 * tP4);
+      const latTerm4 =
+        latFactor *
+        ((Eprime * x7) / 40320) *
+        (1385 - 3633 * tP2 + 4095 * tP4 + 1575 * tP6);
+      const latRad = latPrime - latTerm1 + latTerm2 - latTerm3 + latTerm4;
+
+      const secLatP = 1 / Math.cos(latRad);
+      const lonTerm1 = xSmall * secLatP;
+      const lonTerm2 = ((x3 * secLatP) / 6) * (psiP + 2 * tP2);
+      const lonTerm3 =
+        ((x5 * secLatP) / 120) *
+        (-4 * psiP3 * (1 - 6 * tP2) +
+          psiP2 * (9 - 68 * tP2) +
+          72 * psiP * tP2 +
+          24 * tP4);
+      const lonTerm4 =
+        ((x7 * secLatP) / 5040) *
+        (61 + 662 * tP2 + 1320 * tP4 + 720 * tP6);
+      const lonRad =
+        deg2rad(oLonDeg) + lonTerm1 - lonTerm2 + lonTerm3 - lonTerm4;
+
+      const lat = rad2deg(latRad);
+      const lng = rad2deg(lonRad);
+
+      // Validate coordinates are within reasonable Singapore bounds
+      if (lat < 1.0 || lat > 1.5 || lng < 103.0 || lng > 104.5) {
+        throw new Error(`Invalid coordinates: lat=${lat}, lng=${lng}`);
+      }
+
+      return { lat, lng };
+    } catch (error) {
+      console.error('Coordinate transformation error:', error);
+      // Return default Singapore coordinates as fallback
+      return { lat: 1.3521, lng: 103.8198 };
+    }
+  }
+
+  /**
+   * Validate if coordinates are within Singapore bounds
+   */
+  static isValidSingaporeCoordinates(lat: number, lng: number): boolean {
+    const MIN_LAT = 1.15;
+    const MAX_LAT = 1.48;
+    const MIN_LNG = 103.6;
+    const MAX_LNG = 104.05;
+
+    return (
+      lat >= MIN_LAT &&
+      lat <= MAX_LAT &&
+      lng >= MIN_LNG &&
+      lng <= MAX_LNG
+    );
+  }
+}
+
+/**
+ * Carpark data transformation utilities
+ */
+export class CarparkTransformer {
+  /**
+   * Transform carpark info API response to internal format
+   */
+  static transformCarparkInfo(apiData: CarparkInfoApiResponse): Partial<Carpark> {
+    try {
+      const { lat, lng } = CoordinateTransformer.svy21ToWgs84(
+        Number(apiData.x_coord),
+        Number(apiData.y_coord)
+      );
+
+      // Parse total lots with validation
+      const totalLots = apiData.total_lots && !isNaN(Number(apiData.total_lots))
+        ? Number(apiData.total_lots)
+        : null;
+
+      // Parse rates with validation
+      const rate30min = apiData.current_rate_30min && !isNaN(Number(apiData.current_rate_30min))
+        ? Number(apiData.current_rate_30min)
+        : 0;
+
+      const dailyRate = apiData.active_cap_amount && !isNaN(Number(apiData.active_cap_amount))
+        ? Number(apiData.active_cap_amount)
+        : 0;
+
+      // Parse payment methods from parking system type
+      const paymentMethods = this.parsePaymentMethods(apiData.type_of_parking_system);
+
+      return {
+        id: apiData.carpark_number,
+        name: apiData.name || `Carpark ${apiData.carpark_number}`,
+        address: apiData.address || 'Address not available',
+        latitude: lat,
+        longitude: lng,
+        coordinates: { lat, lng },
+        totalLots,
+        rates: {
+          hourly: rate30min, // Note: stores 30-min rate as per existing logic
+          daily: dailyRate,
+          evCharging: 0, // Default value
+        },
+        type: 'HDB', // Default type
+        features: [],
+        operatingHours: '24 hours',
+        paymentMethods,
+        car_park_type: apiData.car_park_type || '',
+        type_of_parking_system: apiData.type_of_parking_system || '',
+        lot_type: apiData.lot_type || '',
+      };
+    } catch (error) {
+      console.error('Error transforming carpark info:', error);
+      throw new Error(`Failed to transform carpark data for ${apiData.carpark_number}`);
+    }
+  }
+
+  /**
+   * Transform availability API response
+   */
+  static transformAvailability(apiData: CarparkAvailabilityApiResponse): {
+    carparkId: string;
+    availableLots: number;
+  } {
+    try {
+      const availableLots = Number(apiData.lots_available) || 0;
+      
+      return {
+        carparkId: apiData.carpark_number,
+        availableLots,
+      };
+    } catch (error) {
+      console.error('Error transforming availability data:', error);
+      return {
+        carparkId: apiData.carpark_number,
+        availableLots: 0,
+      };
+    }
+  }
+
+  /**
+   * Combine carpark info and availability data
+   */
+  static combineCarparksData(
+    infoRecords: CarparkInfoApiResponse[],
+    availabilityRecords: CarparkAvailabilityApiResponse[]
+  ): Carpark[] {
+    try {
+      // Create unique info map to handle duplicates
+      const uniqueInfoMap = new Map<string, CarparkInfoApiResponse>();
+      infoRecords.forEach((record) => {
+        if (!uniqueInfoMap.has(record.carpark_number)) {
+          uniqueInfoMap.set(record.carpark_number, record);
+        }
+      });
+
+      // Create availability map for quick lookup
+      const availabilityMap = new Map<string, number>();
+      availabilityRecords.forEach((record) => {
+        const transformed = this.transformAvailability(record);
+        availabilityMap.set(transformed.carparkId, transformed.availableLots);
+      });
+
+      // Transform and combine data
+      const carparks: Carpark[] = [];
+      const uniqueInfoRecords = Array.from(uniqueInfoMap.values());
+
+      for (const info of uniqueInfoRecords) {
+        try {
+          const transformedInfo = this.transformCarparkInfo(info);
+          const availableLots = availabilityMap.get(info.carpark_number) || 0;
+
+          const carpark: Carpark = {
+            ...transformedInfo,
+            availableLots,
+            evLots: 0, // Default values
+            availableEvLots: 0,
+          } as Carpark;
+
+          carparks.push(carpark);
+        } catch (error) {
+          console.error(`Failed to process carpark ${info.carpark_number}:`, error);
+          // Continue processing other carparks
+        }
+      }
+
+      console.log(`Successfully transformed ${carparks.length} carparks`);
+      return carparks;
+    } catch (error) {
+      console.error('Error combining carpark data:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Parse payment methods from parking system type
+   */
+  private static parsePaymentMethods(systemType?: string): string[] {
+    if (!systemType) {
+      return ['Electronic']; // Default
+    }
+
+    const paymentMethods: string[] = [];
+    const system = systemType.toUpperCase();
+
+    if (system.includes('ELECTRONIC') || system.includes('EPS')) {
+      paymentMethods.push('Electronic');
+    }
+    if (system.includes('COUPON')) {
+      paymentMethods.push('Coupon');
+    }
+    if (system.includes('GIRO')) {
+      paymentMethods.push('GIRO');
+    }
+
+    // Default to Electronic if no specific method found
+    if (paymentMethods.length === 0) {
+      paymentMethods.push('Electronic');
+    }
+
+    return paymentMethods;
+  }
+
+  /**
+   * Validate carpark data integrity
+   */
+  static validateCarpark(carpark: Partial<Carpark>): boolean {
+    try {
+      // Required fields validation
+      if (!carpark.id || !carpark.name || !carpark.address) {
+        return false;
+      }
+
+      // Coordinate validation
+      if (
+        typeof carpark.latitude !== 'number' ||
+        typeof carpark.longitude !== 'number' ||
+        !CoordinateTransformer.isValidSingaporeCoordinates(
+          carpark.latitude,
+          carpark.longitude
+        )
+      ) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Carpark validation error:', error);
+      return false;
+    }
+  }
+}

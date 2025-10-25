@@ -61,6 +61,18 @@ export default defineConfig({
     figmaAssetsResolver(),
     removeVersionSpecifiers(),
     ...(produceSingleFile ? [viteSingleFile()] : [])
-  ], base: "/ParkWise"
+  ], 
+  base: "/ParkWise",
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@/components': path.resolve(__dirname, './src/components'),
+      '@/services': path.resolve(__dirname, './src/services'),
+      '@/api': path.resolve(__dirname, './src/api'),
+      '@/types': path.resolve(__dirname, './src/types/index.ts'),
+      '@/utils': path.resolve(__dirname, './src/utils'),
+      '@/hooks': path.resolve(__dirname, './src/hooks'),
+    }
+  }
 })
 
