@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { Header } from "./components/Header";
 import { MapView } from "./components/MapView";
 import { SearchView } from "./components/SearchView";
@@ -12,17 +11,22 @@ import { ProfileView } from "./components/ProfileView";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
 import { useAuth } from "./hooks/useAuth";
+import { useAppState } from "./hooks/useAppState";
 import { useDarkMode } from "./hooks/useDarkMode";
-import { Carpark, ViewType, User } from "./types";
+import { AppProviders } from "./contexts";
+import { User } from "./types";
 
-export default function App() {
-  const [currentView, setCurrentView] =
-    useState<ViewType>("map");
-  const [selectedCarpark, setSelectedCarpark] =
-    useState<Carpark | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<
-    "monthly" | "annual"
-  >("monthly");
+function AppContent() {
+  const {
+    currentView,
+    selectedCarpark,
+    selectedPlan,
+    handleViewChange,
+    handleSelectCarpark,
+    handleBackToMap,
+    handlePlanChange,
+  } = useAppState();
+  
   const {
     user,
     isAuthenticated,
@@ -30,13 +34,14 @@ export default function App() {
     signOut,
     updateUser,
   } = useAuth();
+  
   const { isDarkMode, toggleDarkMode } = useDarkMode();
 
   const isPremium = user?.subscription === "premium";
 
   const handleSignOut = () => {
     signOut();
-    setCurrentView("map");
+    handleViewChange("map");
     toast.info("Signed out successfully", {
       description:
         "You can still use free features without an account.",
@@ -45,20 +50,11 @@ export default function App() {
     });
   };
 
-  const handleViewChange = (view: ViewType) => {
-    setCurrentView(view);
-  };
-
-  const handleSelectCarpark = (carpark: Carpark) => {
-    setSelectedCarpark(carpark);
-    setCurrentView("details");
-  };
-
   const handleSubscribe = () => {
     if (!user) {
-      setCurrentView("signup");
+      handleViewChange("signup");
     } else {
-      setCurrentView("payment");
+      handleViewChange("payment");
     }
   };
 
@@ -79,7 +75,7 @@ export default function App() {
 
   const handleLoginSuccess = (authUser: User) => {
     updateUser(authUser);
-    setCurrentView("map"); // Always show map after login
+    handleViewChange("map"); // Always show map after login
     toast.success(`Welcome back, ${authUser.user_id}! 🎉`, {
       description:
         authUser.subscription === "premium"
@@ -94,7 +90,7 @@ export default function App() {
     updateUser(authUser);
     // If user has free subscription, go to map. Otherwise go to payment.
     if (authUser.subscription === "free") {
-      setCurrentView("map");
+      handleViewChange("map");
       toast.success(
         `Welcome to ParkWise, ${authUser.user_id}! 🎉`,
         {
@@ -103,22 +99,17 @@ export default function App() {
         },
       );
     } else {
-      setCurrentView("payment");
+      handleViewChange("payment");
     }
   };
 
   const handlePaymentSuccess = (authUser: User) => {
     updateUser(authUser);
-    setCurrentView("map"); // Always show map after successful payment
+    handleViewChange("map"); // Always show map after successful payment
     toast.success("Payment Successful! 🎊", {
       description:
         "You now have premium access to all features.",
     });
-  };
-
-  const handleBackToMap = () => {
-    setSelectedCarpark(null);
-    setCurrentView("map");
   };
 
   if (loading) {
@@ -191,7 +182,7 @@ export default function App() {
             user={user}
             onDowngrade={handleDowngrade}
             selectedPlan={selectedPlan}
-            onPlanChange={setSelectedPlan}
+            onPlanChange={handlePlanChange}
           />
         )}
 
@@ -228,5 +219,13 @@ export default function App() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProviders>
+      <AppContent />
+    </AppProviders>
   );
 }

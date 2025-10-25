@@ -1,33 +1,39 @@
-import { useState, useEffect } from 'react';
-import { Carpark } from '../types';
-import { CarparkService } from '../services/carparkService';
+import { useEffect } from 'react';
+import { useCarparkContext } from '../contexts/CarparkContext';
 
+/**
+ * Enhanced carpark data hook with context integration
+ * Provides carpark data and management methods
+ */
 export function useCarparks() {
-  const [carparks, setCarparks] = useState<Carpark[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    state,
+    fetchCarparks,
+    filterCarparks,
+    clearError,
+    refreshCarparks,
+  } = useCarparkContext();
 
-  const fetchCarparks = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await CarparkService.fetchCarparks();
-      setCarparks(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch carparks');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Auto-fetch carparks on mount if not already loaded
   useEffect(() => {
-    fetchCarparks();
-  }, []);
+    if (state.carparks.length === 0 && !state.loading && !state.error) {
+      fetchCarparks();
+    }
+  }, [state.carparks.length, state.loading, state.error, fetchCarparks]);
 
   return {
-    carparks,
-    loading,
-    error,
-    refetch: fetchCarparks
+    // State
+    carparks: state.carparks,
+    filteredCarparks: state.filteredCarparks,
+    loading: state.loading,
+    error: state.error,
+    lastUpdated: state.lastUpdated,
+    
+    // Actions
+    fetchCarparks,
+    filterCarparks,
+    clearError,
+    refreshCarparks,
+    refetch: refreshCarparks, // Alias for backward compatibility
   };
 }

@@ -100,3 +100,59 @@ export interface CacheEntry<T> {
   timestamp: number;
   ttl: number;
 }
+
+// Context State Types
+export interface AppState {
+  currentView: ViewType;
+  selectedCarpark: Carpark | null;
+  selectedPlan: "monthly" | "annual";
+  loading: boolean;
+  error: string | null;
+}
+
+export interface CarparkState {
+  carparks: Carpark[];
+  filteredCarparks: Carpark[];
+  loading: boolean;
+  error: string | null;
+  lastUpdated: Date | null;
+}
+
+export interface SearchFilters {
+  maxDistance: number;
+  maxPrice: number;
+  requireEV: boolean;
+  carparkTypes: string[];
+  minAvailability: number;
+  sortBy: 'distance' | 'price' | 'availability';
+}
+
+export interface SearchState {
+  query: string;
+  filters: SearchFilters;
+  location: SearchLocation | null;
+  results: Carpark[];
+  loading: boolean;
+}
+
+export interface SearchLocation {
+  latitude: number;
+  longitude: number;
+  address?: string;
+  postalCode?: string;
+}
+
+export interface MapBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+export interface MapState {
+  userLocation: SearchLocation | null;
+  mapBounds: MapBounds | null;
+  selectedCarparkId: string | null;
+  zoom: number;
+  center: SearchLocation | null;
+}
