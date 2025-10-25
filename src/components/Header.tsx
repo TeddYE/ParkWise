@@ -16,7 +16,7 @@ import {
   SheetDescription,
   SheetTrigger,
 } from './ui/sheet';
-import { useState } from 'react';
+import { useState, memo, useCallback } from 'react';
 
 interface HeaderProps {
   currentView: string;
@@ -29,13 +29,18 @@ interface HeaderProps {
   onToggleDarkMode: () => void;
 }
 
-export function Header({ currentView, onViewChange, onBackToHome, isPremium, user, onSignOut, isDarkMode, onToggleDarkMode }: HeaderProps) {
+export const Header = memo(function Header({ currentView, onViewChange, onBackToHome, isPremium, user, onSignOut, isDarkMode, onToggleDarkMode }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleNavigation = (view: string) => {
+  const handleNavigation = useCallback((view: string) => {
     onViewChange(view);
     setMobileMenuOpen(false);
-  };
+  }, [onViewChange]);
+
+  const handleSignOutClick = useCallback(() => {
+    onSignOut?.();
+    setMobileMenuOpen(false);
+  }, [onSignOut]);
 
   return (
     <header className="bg-background border-b px-4 py-3 flex items-center justify-between relative z-[100]">
@@ -244,10 +249,7 @@ export function Header({ currentView, onViewChange, onBackToHome, isPremium, use
                   </Button>
                   <Button
                     variant="ghost"
-                    onClick={() => {
-                      onSignOut?.();
-                      setMobileMenuOpen(false);
-                    }}
+                    onClick={handleSignOutClick}
                     className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
                   >
                     <LogOut className="w-4 h-4 mr-2" />
@@ -270,4 +272,4 @@ export function Header({ currentView, onViewChange, onBackToHome, isPremium, use
       </div>
     </header>
   );
-}
+});

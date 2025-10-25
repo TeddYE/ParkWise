@@ -15,6 +15,7 @@ import { useAppState } from "./hooks/useAppState";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { AppProviders } from "./contexts";
 import { User } from "./types";
+import { memo, useCallback, useMemo } from "react";
 
 function AppContent() {
   const {
@@ -37,9 +38,9 @@ function AppContent() {
   
   const { isDarkMode, toggleDarkMode } = useDarkMode();
 
-  const isPremium = user?.subscription === "premium";
+  const isPremium = useMemo(() => user?.subscription === "premium", [user?.subscription]);
 
-  const handleSignOut = () => {
+  const handleSignOut = useCallback(() => {
     signOut();
     handleViewChange("map");
     toast.info("Signed out successfully", {
@@ -48,17 +49,17 @@ function AppContent() {
       dismissible: true,
       closeButton: true,
     });
-  };
+  }, [signOut, handleViewChange]);
 
-  const handleSubscribe = () => {
+  const handleSubscribe = useCallback(() => {
     if (!user) {
       handleViewChange("signup");
     } else {
       handleViewChange("payment");
     }
-  };
+  }, [user, handleViewChange]);
 
-  const handleDowngrade = () => {
+  const handleDowngrade = useCallback(() => {
     if (!user) return;
 
     // Mock downgrade
@@ -71,9 +72,9 @@ function AppContent() {
     toast.info("Downgraded to Free Plan", {
       description: "Premium features are no longer available.",
     });
-  };
+  }, [user, updateUser]);
 
-  const handleLoginSuccess = (authUser: User) => {
+  const handleLoginSuccess = useCallback((authUser: User) => {
     updateUser(authUser);
     handleViewChange("map"); // Always show map after login
     toast.success(`Welcome back, ${authUser.user_id}! 🎉`, {
@@ -84,9 +85,9 @@ function AppContent() {
       dismissible: true,
       closeButton: true,
     });
-  };
+  }, [updateUser, handleViewChange]);
 
-  const handleSignupSuccess = (authUser: User) => {
+  const handleSignupSuccess = useCallback((authUser: User) => {
     updateUser(authUser);
     // If user has free subscription, go to map. Otherwise go to payment.
     if (authUser.subscription === "free") {
@@ -101,16 +102,16 @@ function AppContent() {
     } else {
       handleViewChange("payment");
     }
-  };
+  }, [updateUser, handleViewChange]);
 
-  const handlePaymentSuccess = (authUser: User) => {
+  const handlePaymentSuccess = useCallback((authUser: User) => {
     updateUser(authUser);
     handleViewChange("map"); // Always show map after successful payment
     toast.success("Payment Successful! 🎊", {
       description:
         "You now have premium access to all features.",
     });
-  };
+  }, [updateUser, handleViewChange]);
 
   if (loading) {
     return (

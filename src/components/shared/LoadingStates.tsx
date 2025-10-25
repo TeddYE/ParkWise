@@ -1,22 +1,26 @@
 import { Loader2 } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { memo, useMemo } from 'react';
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
-export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) {
-  const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-8 h-8',
-    lg: 'w-12 h-12'
-  };
+export const LoadingSpinner = memo(function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) {
+  const sizeClass = useMemo(() => {
+    const sizeClasses = {
+      sm: 'w-4 h-4',
+      md: 'w-8 h-8',
+      lg: 'w-12 h-12'
+    };
+    return sizeClasses[size];
+  }, [size]);
 
   return (
-    <Loader2 className={cn('animate-spin text-muted-foreground', sizeClasses[size], className)} />
+    <Loader2 className={cn('animate-spin text-muted-foreground', sizeClass, className)} />
   );
-}
+});
 
 interface LoadingStateProps {
   message?: string;
@@ -24,7 +28,7 @@ interface LoadingStateProps {
   className?: string;
 }
 
-export function LoadingState({ 
+export const LoadingState = memo(function LoadingState({ 
   message = 'Loading...', 
   size = 'md',
   className 
@@ -37,19 +41,19 @@ export function LoadingState({
       </div>
     </div>
   );
-}
+});
 
 interface FullPageLoadingProps {
   message?: string;
 }
 
-export function FullPageLoading({ message = 'Loading...' }: FullPageLoadingProps) {
+export const FullPageLoading = memo(function FullPageLoading({ message = 'Loading...' }: FullPageLoadingProps) {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <LoadingState message={message} size="lg" />
     </div>
   );
-}
+});
 
 interface CarparkLoadingSkeletonProps {
   count?: number;
@@ -57,12 +61,12 @@ interface CarparkLoadingSkeletonProps {
   className?: string;
 }
 
-export function CarparkLoadingSkeleton({ 
+export const CarparkLoadingSkeleton = memo(function CarparkLoadingSkeleton({ 
   count = 3, 
   variant = 'detailed',
   className 
 }: CarparkLoadingSkeletonProps) {
-  const skeletons = Array.from({ length: count }, (_, i) => (
+  const skeletons = useMemo(() => Array.from({ length: count }, (_, i) => (
     <div 
       key={i} 
       className={cn(
@@ -91,21 +95,21 @@ export function CarparkLoadingSkeleton({
         </>
       )}
     </div>
-  ));
+  )), [count, variant]);
 
   return (
     <div className={cn('space-y-4', className)}>
       {skeletons}
     </div>
   );
-}
+});
 
 interface MapLoadingStateProps {
   message?: string;
   className?: string;
 }
 
-export function MapLoadingState({ 
+export const MapLoadingState = memo(function MapLoadingState({ 
   message = 'Loading map...', 
   className 
 }: MapLoadingStateProps) {
@@ -124,7 +128,7 @@ export function MapLoadingState({
       </div>
     </div>
   );
-}
+});
 
 interface SearchLoadingStateProps {
   message?: string;
@@ -133,7 +137,7 @@ interface SearchLoadingStateProps {
   className?: string;
 }
 
-export function SearchLoadingState({ 
+export const SearchLoadingState = memo(function SearchLoadingState({ 
   message = 'Searching carparks...', 
   showProgress = false,
   progress = 0,
@@ -159,4 +163,4 @@ export function SearchLoadingState({
       )}
     </div>
   );
-}
+});

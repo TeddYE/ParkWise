@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Carpark } from '../types';
 import {
   calculateDistance,
@@ -21,31 +21,25 @@ export function useDrivingTimes({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!userLocation) {
-      // No user location, set distance and drivingTime to undefined
-      const carparksWithoutLocation = carparks.map(carpark => ({
-        ...carpark,
-        distance: undefined,
-        drivingTime: undefined,
-      }));
-      setCarparksWithTimes(carparksWithoutLocation);
-      return;
-    }
+  // Memoize destinations to avoid recalculating on every render
+  const destinations = useMemo(() => 
+    carparks.map(cp => ({
+      id: cp.id,
+      lat: cp.latitude,
+      lng: cp.longitude,
+    })), [carparks]
+  );
 
-    const updateDrivingTimes = async () => {
+  // Memoize the update function
+  const updateDrivingTimes = useCallback(async () => {
+      if (!userLocation) return;
+      
       setIsLoading(true);
       setError(null);
 
       try {
         if (enableRealTimes) {
           // Try to fetch real driving times from Google Maps
-          const destinations = carparks.map(cp => ({
-            id: cp.id,
-            lat: cp.latitude,
-            lng: cp.longitude,
-          }));
-
           const drivingTimesMap = await fetchDrivingTimesWithCache(
             userLocation,
             destinations
@@ -139,10 +133,22 @@ export function useDrivingTimes({
       } finally {
         setIsLoading(false);
       }
-    };
+  }, [carparks, userLocation, enableRealTimes, destinations]);
+
+  useEffect(() => {
+    if (!userLocation) {
+      // No user location, set distance and drivingTime to undefined
+      const carparksWithoutLocation = carparks.map(carpark => ({
+        ...carpark,
+        distance: undefined,
+        drivingTime: undefined,
+      }));
+      setCarparksWithTimes(carparksWithoutLocation);
+      return;
+    }
 
     updateDrivingTimes();
-  }, [carparks, userLocation, enableRealTimes]);
+  }, [carparks, userLocation, updateDrivingTimes]);
 
   return {
     carparks: carparksWithTimes,

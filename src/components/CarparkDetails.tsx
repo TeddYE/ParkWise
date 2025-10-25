@@ -16,6 +16,7 @@ import { Carpark, User } from '../types';
 import { toast } from "sonner";
 import { updateFavoriteCarparks } from '../services/updateProfileService';
 import { getCarparkDisplayName } from '../utils/carpark';
+import { memo, useCallback, useMemo } from 'react';
 
 
 interface CarparkDetailsProps {
@@ -27,22 +28,32 @@ interface CarparkDetailsProps {
   onUpdateUser?: (user: User) => void;
 }
 
-export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user, onUpdateUser }: CarparkDetailsProps) {
-  const getAvailabilityStatus = (available: number, total: number | null) => {
-    if (total === null || total === 0) {
-      return { text: 'Unknown', color: 'bg-gray-100 text-gray-800' };
-    }
-    const percentage = (available / total) * 100;
-    if (percentage > 30) return { text: 'Good Availability', color: 'bg-green-100 text-green-800' };
-    if (percentage > 10) return { text: 'Limited Availability', color: 'bg-yellow-100 text-yellow-800' };
-    return { text: 'Very Limited', color: 'bg-red-100 text-red-800' };
-  };
+export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user, onUpdateUser }: CarparkDetailsProps) {
+  // Memoize expensive calculations
+  const availabilityStatus = useMemo(() => {
+    const getAvailabilityStatus = (available: number, total: number | null) => {
+      if (total === null || total === 0) {
+        return { text: 'Unknown', color: 'bg-gray-100 text-gray-800' };
+      }
+      const percentage = (available / total) * 100;
+      if (percentage > 30) return { text: 'Good Availability', color: 'bg-green-100 text-green-800' };
+      if (percentage > 10) return { text: 'Limited Availability', color: 'bg-yellow-100 text-yellow-800' };
+      return { text: 'Very Limited', color: 'bg-red-100 text-red-800' };
+    };
+    return getAvailabilityStatus(carpark.availableLots, carpark.totalLots);
+  }, [carpark.availableLots, carpark.totalLots]);
+  
+  const isFavorite = useMemo(() => 
+    user?.favoriteCarparks?.includes(carpark.id) || false, 
+    [user?.favoriteCarparks, carpark.id]
+  );
 
-  const availabilityStatus = getAvailabilityStatus(carpark.availableLots, carpark.totalLots);
+  const displayName = useMemo(() => 
+    getCarparkDisplayName(carpark), 
+    [carpark]
+  );
   
-  const isFavorite = user?.favoriteCarparks?.includes(carpark.id) || false;
-  
-  const handleToggleFavorite = async () => {
+  const handleToggleFavorite = useCallback(async () => {
     if (!user || !onUpdateUser) {
       toast.error('Please login to save favorites');
       onViewChange('login');
@@ -73,7 +84,19 @@ export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user,
       onUpdateUser(user);
       toast.error(response.error || 'Failed to update favorites');
     }
-  };
+  }, [user, onUpdateUser, onViewChange, carpark.id, isFavorite]);
+
+  const handleOpenMaps = useCallback(() => {
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const mapsUrl = isIOS
+      ? `maps://maps.apple.com/?daddr=${carpark.coordinates.lat},${carpark.coordinates.lng}&dirflg=d`
+      : `https://www.google.com/maps/dir/?api=1&destination=${carpark.coordinates.lat},${carpark.coordinates.lng}`;
+    window.open(mapsUrl, '_blank');
+  }, [carpark.coordinates.lat, carpark.coordinates.lng]);
+
+  const handlePremiumAction = useCallback((action: string) => {
+    onViewChange(action);
+  }, [onViewChange]);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -85,7 +108,7 @@ export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user,
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl break-words">{getCarparkDisplayName(carpark)}</h1>
+            <h1 className="text-xl sm:text-2xl break-words">{displayName}</h1>
             {carpark.name && carpark.name.trim() !== '' && (
               <p className="text-muted-foreground text-sm sm:text-base break-words">{carpark.address}</p>
             )}
@@ -170,7 +193,7 @@ export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user,
                   <Button 
                     size="sm" 
                     variant="outline"
-                    onClick={() => onViewChange('premium')}
+                    onClick={() => handlePremiumAction('premium')}
                   >
                     Calculate Total Cost
                   </Button>
@@ -252,13 +275,7 @@ export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user,
             <CardContent className="space-y-2">
               <Button 
                 className="w-full" 
-                onClick={() => {
-                  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-                  const mapsUrl = isIOS
-                    ? `maps://maps.apple.com/?daddr=${carpark.coordinates.lat},${carpark.coordinates.lng}&dirflg=d`
-                    : `https://www.google.com/maps/dir/?api=1&destination=${carpark.coordinates.lat},${carpark.coordinates.lng}`;
-                  window.open(mapsUrl, '_blank');
-                }}
+                onClick={handleOpenMaps}
               >
                 <MapPin className="w-4 h-4 mr-2" />
                 Open in Maps
@@ -286,7 +303,7 @@ export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user,
                 <Button 
                   size="sm" 
                   className="w-full"
-                  onClick={() => onViewChange('pricing')}
+                  onClick={() => handlePremiumAction('pricing')}
                 >
                   Upgrade to Premium
                 </Button>
@@ -303,7 +320,7 @@ export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user,
                     size="sm" 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => onViewChange('premium')}
+                    onClick={() => handlePremiumAction('premium')}
                   >
                     View Historical Data
                   </Button>
@@ -330,4 +347,4 @@ export function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user,
       </div>
     </div>
   );
-}
+});

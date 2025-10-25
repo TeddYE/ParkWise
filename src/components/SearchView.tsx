@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Search, Filter, MapPin, Car, Zap, Clock, DollarSign, SlidersHorizontal, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Search, MapPin, Car, Zap, Clock, DollarSign, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -13,6 +13,7 @@ import { isPostalCode } from '../utils/postalCode';
 import { geocodePostalCode, GeocodingResult } from '../services/geocodingService';
 import { calculateDistance } from '../utils/distance';
 import { getCarparkDisplayName } from '../utils/carpark';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface SearchViewProps {
   onSelectCarpark: (carpark: Carpark) => void;
@@ -31,13 +32,20 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
   const [geocodingLoading, setGeocodingLoading] = useState(false);
   const [geocodedLocation, setGeocodedLocation] = useState<GeocodingResult | null>(null);
   const [geocodingError, setGeocodingError] = useState<string>('');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20); // Show 20 carparks per page
+  
+  // Debounce search query to prevent excessive filtering
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Fetch carparks from the API
-  const { carparks, loading } = useCarparks();
+  const { carparks } = useCarparks();
 
   // Handle postal code geocoding
   useEffect(() => {
-    const trimmedQuery = searchQuery.trim();
+    const trimmedQuery = debouncedSearchQuery.trim();
     
     // Reset geocoding state if query is not a postal code
     if (!isPostalCode(trimmedQuery)) {
@@ -65,62 +73,115 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [debouncedSearchQuery]);
 
-  // Calculate distances from geocoded location if available
-  const carparksWithDistance = geocodedLocation
-    ? carparks.map(carpark => ({
-        ...carpark,
-        distance: calculateDistance(
-          geocodedLocation.latitude,
-          geocodedLocation.longitude,
-          carpark.latitude,
-          carpark.longitude
-        ),
-      }))
-    : carparks;
+  // Memoize distance calculations
+  const carparksWithDistance = useMemo(() => {
+    if (!geocodedLocation) return carparks;
+    
+    return carparks.map(carpark => ({
+      ...carpark,
+      distance: calculateDistance(
+        geocodedLocation.latitude,
+        geocodedLocation.longitude,
+        carpark.latitude,
+        carpark.longitude
+      ),
+    }));
+  }, [carparks, geocodedLocation]);
 
-  const filteredCarparks = carparksWithDistance
-    .filter(carpark => {
-      if (searchQuery && !geocodedLocation) {
-        // Regular text search (not postal code)
-        const nameMatch = carpark.name?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
-        const addressMatch = carpark.address?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
-        if (!nameMatch && !addressMatch) {
-          return false;
+  // Memoize filtered and sorted carparks
+  const filteredCarparks = useMemo(() => {
+    return carparksWithDistance
+      .filter(carpark => {
+        if (debouncedSearchQuery && !geocodedLocation) {
+          // Regular text search (not postal code)
+          const nameMatch = carpark.name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) || false;
+          const addressMatch = carpark.address?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) || false;
+          if (!nameMatch && !addressMatch) {
+            return false;
+          }
         }
-      }
-      if (carpark.distance !== undefined && carpark.distance > maxDistance[0]) return false;
-      if (carpark.rates.hourly > maxPrice[0]) return false;
-      if (isPremium && requireEV && carpark.evLots === 0) return false;
-      if (isPremium && selectedTypes.length > 0 && !selectedTypes.includes(carpark.type)) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'price': return a.rates.hourly - b.rates.hourly;
-        case 'availability': {
-          const aTotal = a.totalLots || 1;
-          const bTotal = b.totalLots || 1;
-          return (b.availableLots / bTotal) - (a.availableLots / aTotal);
+        if (carpark.distance !== undefined && carpark.distance > maxDistance[0]) return false;
+        if (carpark.rates.hourly > maxPrice[0]) return false;
+        if (isPremium && requireEV && carpark.evLots === 0) return false;
+        if (isPremium && selectedTypes.length > 0 && !selectedTypes.includes(carpark.type)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'price': return a.rates.hourly - b.rates.hourly;
+          case 'availability': {
+            const aTotal = a.totalLots || 1;
+            const bTotal = b.totalLots || 1;
+            return (b.availableLots / bTotal) - (a.availableLots / aTotal);
+          }
+          case 'distance':
+          default: 
+            // Handle undefined distances (put them at the end)
+            if (a.distance === undefined && b.distance === undefined) return 0;
+            if (a.distance === undefined) return 1;
+            if (b.distance === undefined) return -1;
+            return a.distance - b.distance;
         }
-        case 'distance':
-        default: 
-          // Handle undefined distances (put them at the end)
-          if (a.distance === undefined && b.distance === undefined) return 0;
-          if (a.distance === undefined) return 1;
-          if (b.distance === undefined) return -1;
-          return a.distance - b.distance;
-      }
-    });
+      });
+  }, [carparksWithDistance, debouncedSearchQuery, geocodedLocation, maxDistance, maxPrice, isPremium, requireEV, selectedTypes, sortBy]);
 
-  const getAvailabilityColor = (available: number, total: number | null) => {
+  // Memoize utility functions
+  const getAvailabilityColor = useCallback((available: number, total: number | null) => {
     if (total === null || total === 0) return 'text-gray-400';
     const percentage = (available / total) * 100;
     if (percentage > 30) return 'text-green-600';
     if (percentage > 10) return 'text-yellow-600';
     return 'text-red-600';
-  };
+  }, []);
+
+  const handleToggleAdvanced = useCallback(() => {
+    setShowAdvanced(!showAdvanced);
+  }, [showAdvanced]);
+
+  const handleResetFilters = useCallback(() => {
+    setMaxDistance([10]);
+    setMaxPrice([15]);
+    setRequireEV(false);
+    setSelectedTypes([]);
+  }, []);
+
+  const handlePremiumUpgrade = useCallback(() => {
+    onViewChange('pricing');
+  }, [onViewChange]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery, maxDistance, maxPrice, requireEV, selectedTypes, sortBy, geocodedLocation]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredCarparks.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCarparks = useMemo(() => 
+    filteredCarparks.slice(startIndex, endIndex), 
+    [filteredCarparks, startIndex, endIndex]
+  );
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of results
+    document.querySelector('.search-results')?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  const handlePrevPage = useCallback(() => {
+    if (currentPage > 1) {
+      handlePageChange(currentPage - 1);
+    }
+  }, [currentPage, handlePageChange]);
+
+  const handleNextPage = useCallback(() => {
+    if (currentPage < totalPages) {
+      handlePageChange(currentPage + 1);
+    }
+  }, [currentPage, totalPages, handlePageChange]);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -145,7 +206,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
           </div>
           <Button 
             variant="outline"
-            onClick={() => setShowAdvanced(!showAdvanced)}
+            onClick={handleToggleAdvanced}
             className="flex items-center gap-2 justify-center sm:justify-start"
           >
             <SlidersHorizontal className="w-4 h-4" />
@@ -287,15 +348,22 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
       </div>
 
       {/* Results */}
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg">
-          {filteredCarparks.length} carpark{filteredCarparks.length !== 1 ? 's' : ''} found
-        </h2>
+      <div className="mb-4 flex items-center justify-between search-results">
+        <div>
+          <h2 className="text-lg">
+            {filteredCarparks.length} carpark{filteredCarparks.length !== 1 ? 's' : ''} found
+          </h2>
+          {filteredCarparks.length > itemsPerPage && (
+            <p className="text-sm text-muted-foreground">
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredCarparks.length)} of {filteredCarparks.length}
+            </p>
+          )}
+        </div>
         {!isPremium && filteredCarparks.length > 0 && (
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => onViewChange('pricing')}
+            onClick={handlePremiumUpgrade}
           >
             Get Smart Recommendations
           </Button>
@@ -304,7 +372,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
 
       {/* Carpark List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filteredCarparks.map((carpark) => (
+        {paginatedCarparks.map((carpark) => (
           <Card 
             key={carpark.id} 
             className="cursor-pointer hover:shadow-md transition-shadow"
@@ -377,6 +445,75 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
         ))}
       </div>
 
+      {/* Pagination */}
+      {filteredCarparks.length > itemsPerPage && (
+        <div className="mt-8 flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrevPage}
+            disabled={currentPage === 1}
+            className="flex items-center gap-1"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Previous
+          </Button>
+          
+          <div className="flex items-center gap-1">
+            {/* Show page numbers */}
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              
+              return (
+                <Button
+                  key={pageNum}
+                  variant={currentPage === pageNum ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handlePageChange(pageNum)}
+                  className="w-8 h-8 p-0"
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+            
+            {totalPages > 5 && currentPage < totalPages - 2 && (
+              <>
+                <span className="px-2 text-muted-foreground">...</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(totalPages)}
+                  className="w-8 h-8 p-0"
+                >
+                  {totalPages}
+                </Button>
+              </>
+            )}
+          </div>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            className="flex items-center gap-1"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
       {filteredCarparks.length === 0 && (
         <div className="text-center py-12">
           <Search className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
@@ -386,12 +523,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
           </p>
           <Button 
             variant="outline"
-            onClick={() => {
-              setMaxDistance([10]);
-              setMaxPrice([15]);
-              setRequireEV(false);
-              setSelectedTypes([]);
-            }}
+            onClick={handleResetFilters}
           >
             Reset Filters
           </Button>

@@ -3,6 +3,8 @@ import {
   useRef,
   useCallback,
   useEffect,
+  memo,
+  useMemo,
 } from "react";
 import {
   MapPin,
@@ -139,17 +141,16 @@ export function MapView({
     );
   };
 
-  // Handle manual refresh
-  const handleRefresh = async () => {
+  // Memoize event handlers
+  const handleRefresh = useCallback(async () => {
     await refetchCarparks();
     toast.success('Carpark data refreshed', {
       description: 'Availability data has been updated',
       duration: 2000,
     });
-  };
+  }, [refetchCarparks]);
 
-  // Handle search
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) {
       setSearchLocation(null);
       return;
@@ -203,16 +204,14 @@ export function MapView({
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [searchQuery]);
 
-  // Clear search
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
     setSearchQuery("");
     setSearchLocation(null);
-  };
+  }, []);
 
-  // Handle favorite toggle
-  const handleToggleFavorite = async (carparkId: string, event?: React.MouseEvent) => {
+  const handleToggleFavorite = useCallback(async (carparkId: string, event?: React.MouseEvent) => {
     // Prevent card click when clicking heart
     if (event) {
       event.stopPropagation();
@@ -258,50 +257,49 @@ export function MapView({
         closeButton: true,
       });
     }
-  };
+  }, [user, onUpdateUser, onViewChange]);
 
-  // Get unique lot types and carpark types from carparks
-  const uniqueLotTypes = Array.from(
+  // Memoize unique filter options
+  const uniqueLotTypes = useMemo(() => Array.from(
     new Set(
       carparksWithDistance
         .map((cp) => cp.lot_type)
         .filter((type) => type && type.trim() !== "")
     )
-  ).sort();
+  ).sort(), [carparksWithDistance]);
 
-  const uniqueCarparkTypes = Array.from(
+  const uniqueCarparkTypes = useMemo(() => Array.from(
     new Set(
       carparksWithDistance
         .map((cp) => cp.car_park_type)
         .filter((type) => type && type.trim() !== "")
     )
-  ).sort();
+  ).sort(), [carparksWithDistance]);
 
-  const uniquePaymentMethods = Array.from(
+  const uniquePaymentMethods = useMemo(() => Array.from(
     new Set(
       carparksWithDistance
         .flatMap((cp) => cp.paymentMethods)
         .filter((method) => method && method.trim() !== "")
     )
-  ).sort();
+  ).sort(), [carparksWithDistance]);
 
-  // Format lot type for display
-  const formatLotType = (lotType: string): string => {
+  // Memoize formatting functions
+  const formatLotType = useCallback((lotType: string): string => {
     const lotTypeMap: Record<string, string> = {
       'C': 'Car',
       'Y': 'Motorcycle',
       'H': 'Heavy Vehicle',
     };
     return lotTypeMap[lotType] || lotType;
-  };
+  }, []);
 
-  // Format carpark type for display (title case)
-  const formatCarparkType = (carparkType: string): string => {
+  const formatCarparkType = useCallback((carparkType: string): string => {
     return carparkType
       .split(' ')
       .map(word => word.charAt(0) + word.slice(1).toLowerCase())
       .join(' ');
-  };
+  }, []);
 
   // Toggle lot type filter
   const toggleLotType = (lotType: string) => {
