@@ -53,7 +53,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
       script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
       script.crossOrigin = '';
       document.head.appendChild(script);
-      
+
       script.onload = () => {
         console.log('Leaflet library loaded');
         setLeafletReady(true);
@@ -67,7 +67,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
           clearInterval(checkInterval);
         }
       }, 100);
-      
+
       // Clear interval after 5 seconds to prevent memory leak
       setTimeout(() => clearInterval(checkInterval), 5000);
     }
@@ -78,7 +78,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
     if (!leafletReady || !window.L || !mapRef.current || mapInstanceRef.current) return;
 
     console.log('Initializing empty map...');
-    
+
     // Always start with Singapore city centre (Raffles Place)
     const defaultCenter = { lat: 1.2897, lng: 103.8501 };
 
@@ -96,7 +96,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
       if (boundsUpdateTimeoutRef.current) {
         clearTimeout(boundsUpdateTimeoutRef.current);
       }
-      
+
       boundsUpdateTimeoutRef.current = setTimeout(() => {
         if (map) {
           if (onBoundsChange) {
@@ -147,7 +147,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
   // Pan to user location when it becomes available (but don't re-initialize map)
   useEffect(() => {
     if (!mapInstanceRef.current || !userLocation) return;
-    
+
     console.log('User location available, panning to:', userLocation);
     mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], 14, {
       animate: true,
@@ -219,7 +219,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
   // Pan to search location when it becomes available
   useEffect(() => {
     if (!mapInstanceRef.current || !searchLocation) return;
-    
+
     console.log('Search location available, panning to:', searchLocation);
     mapInstanceRef.current.setView([searchLocation.lat, searchLocation.lng], 15, {
       animate: true,
@@ -299,10 +299,10 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
         zIndexOffset: 999,
       }).addTo(mapInstanceRef.current);
 
-      const popupContent = searchLocation.address 
+      const popupContent = searchLocation.address
         ? `<strong>Search Location</strong><br/>${searchLocation.address}`
         : '<strong>Search Location</strong>';
-      
+
       marker.bindPopup(popupContent);
       searchMarkerRef.current = marker;
     }
@@ -318,24 +318,24 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
 
     // Create new markers
     const newMarkers = carparks.map((carpark) => {
-      const availabilityPercentage = carpark.totalLots !== null && carpark.totalLots > 0
-        ? (carpark.availableLots / carpark.totalLots) * 100
-        : 0;
-
       // Use the distance and driving time from the carpark data
       // (which may already include real driving times from OSRM)
       // If no user location, these will be undefined
       const actualDistance = carpark.distance !== undefined ? carpark.distance : null;
       const actualDrivingTime = carpark.drivingTime !== undefined ? carpark.drivingTime : null;
-      
-      // Determine marker color based on availability
-      let markerColor = '#22c55e'; // green
+
+      // Determine marker color based on occupancy (filled percentage)
+      const occupancyPercentage = carpark.totalLots !== null && carpark.totalLots > 0
+        ? ((carpark.totalLots - carpark.availableLots) / carpark.totalLots) * 100
+        : 0;
+
+      let markerColor = '#22c55e'; // green (default - less than 60% filled)
       if (carpark.totalLots === null) {
         markerColor = '#9ca3af'; // gray for unknown
-      } else if (availabilityPercentage <= 10) {
-        markerColor = '#ef4444'; // red
-      } else if (availabilityPercentage <= 30) {
-        markerColor = '#eab308'; // yellow
+      } else if (occupancyPercentage > 80) {
+        markerColor = '#ef4444'; // red (more than 80% filled)
+      } else if (occupancyPercentage > 60) {
+        markerColor = '#eab308'; // yellow (60-80% filled)
       }
 
       // Create custom marker icon with sleek modern design
@@ -425,13 +425,13 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
               gap: 5px;
               font-size: 12px;
               padding: 4px 10px;
-              background: ${availabilityPercentage > 30 ? 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)' : availabilityPercentage > 10 ? 'linear-gradient(135deg, #fef9c3 0%, #fef08a 100%)' : 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)'};
-              color: ${availabilityPercentage > 30 ? '#166534' : availabilityPercentage > 10 ? '#854d0e' : '#991b1b'};
+              background: ${occupancyPercentage <= 60 ? 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)' : occupancyPercentage <= 80 ? 'linear-gradient(135deg, #fef9c3 0%, #fef08a 100%)' : 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)'};
+              color: ${occupancyPercentage <= 60 ? '#166534' : occupancyPercentage <= 80 ? '#854d0e' : '#991b1b'};
               border-radius: 6px;
               font-weight: 600;
               box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             ">
-              🚗 ${carpark.availableLots}/${carpark.totalLots !== null ? carpark.totalLots : 'N/A'}
+              🚗 ${carpark.totalLots !== null ? carpark.totalLots - carpark.availableLots : 'N/A'}/${carpark.totalLots !== null ? carpark.totalLots : 'N/A'}
             </span>
             ${carpark.evLots > 0 ? `
               <span style="

@@ -429,8 +429,8 @@ export function MapView({
     const centerLat = (mapBounds.north + mapBounds.south) / 2;
     const centerLng = (mapBounds.east + mapBounds.west) / 2;
 
-    // Calculate distance from center for each carpark in bounds
-    const carparksWithCenterDistance = carparksInBounds.map((carpark) => {
+    // Calculate distance from center and assign priority scores
+    const carparksWithPriority = carparksInBounds.map((carpark) => {
       // Use Haversine formula to calculate distance from map center
       const R = 6371; // Earth's radius in km
       const dLat = ((carpark.latitude - centerLat) * Math.PI) / 180;
@@ -444,20 +444,67 @@ export function MapView({
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const distanceFromCenter = R * c;
 
+      // Calculate priority score (higher = more likely to be shown)
+      let priorityScore = 0;
+
+      // Priority 1: If user searched for this specific carpark (highest priority)
+      if (searchQuery && searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const nameMatch = carpark.name?.toLowerCase().includes(query);
+        const addressMatch = carpark.address?.toLowerCase().includes(query);
+        const idMatch = carpark.id.toLowerCase().includes(query);
+        
+        if (nameMatch || addressMatch || idMatch) {
+          priorityScore += 1000; // Very high priority
+        }
+      }
+
+      // Priority 2: If user searched for postal code, nearest 5 get high priority
+      if (searchLocation && !searchQuery.includes(' ')) {
+        // Add high priority for the 5 closest to search location
+        const searchRank = carparksInBounds
+          .map(cp => {
+            const cpDLat = ((cp.latitude - searchLocation.lat) * Math.PI) / 180;
+            const cpDLng = ((cp.longitude - searchLocation.lng) * Math.PI) / 180;
+            const cpA =
+              Math.sin(cpDLat / 2) * Math.sin(cpDLat / 2) +
+              Math.cos((searchLocation.lat * Math.PI) / 180) *
+                Math.cos((cp.latitude * Math.PI) / 180) *
+                Math.sin(cpDLng / 2) *
+                Math.sin(cpDLng / 2);
+            const cpC = 2 * Math.atan2(Math.sqrt(cpA), Math.sqrt(1 - cpA));
+            return { id: cp.id, distance: R * cpC };
+          })
+          .sort((a, b) => a.distance - b.distance)
+          .findIndex(cp => cp.id === carpark.id);
+
+        if (searchRank < 5) {
+          priorityScore += 500 - (searchRank * 50); // Top 5 get 500, 450, 400, 350, 300
+        }
+      }
+
+      // Priority 3: Closer to center gets higher priority (inverse distance)
+      const maxDistance = 10; // km
+      const distancePriority = Math.max(0, (maxDistance - distanceFromCenter) / maxDistance * 100);
+      priorityScore += distancePriority;
+
+      // Add some randomization to avoid always showing the same carparks
+      const randomBonus = Math.random() * 50;
+      priorityScore += randomBonus;
+
       return {
         ...carpark,
         distanceFromCenter,
+        priorityScore,
       };
     });
 
-    // Sort by distance from center (closest first)
-    carparksWithCenterDistance.sort(
-      (a, b) => a.distanceFromCenter - b.distanceFromCenter
-    );
+    // Sort by priority score (highest first)
+    carparksWithPriority.sort((a, b) => b.priorityScore - a.priorityScore);
 
     // Limit to MAX_MAP_CARPARKS
-    return carparksWithCenterDistance.slice(0, MAX_MAP_CARPARKS);
-  }, [carparksInBounds, mapBounds]);
+    return carparksWithPriority.slice(0, MAX_MAP_CARPARKS);
+  }, [carparksInBounds, mapBounds, searchQuery, searchLocation]);
 
   const carparksForMap = getCarparksForMap();
   const hasMoreCarparks =

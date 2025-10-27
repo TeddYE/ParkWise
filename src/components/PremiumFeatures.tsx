@@ -7,7 +7,6 @@ import {
   Target, 
   Clock, 
   DollarSign,
-  Zap,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
@@ -27,7 +26,7 @@ interface PremiumFeaturesProps {
 
 export function PremiumFeatures({ isPremium, onViewChange }: PremiumFeaturesProps) {
   const [parkingDuration, setParkingDuration] = useState([2]);
-  const [chargingDuration, setChargingDuration] = useState([1]);
+
   const [showHistorical, setShowHistorical] = useState(false);
   
   // Fetch carparks from the API
@@ -56,8 +55,7 @@ export function PremiumFeatures({ isPremium, onViewChange }: PremiumFeaturesProp
 
   const selectedCarparkData = mockCarparks.find(cp => cp.id === selectedCarpark);
   const totalCost = selectedCarparkData ? 
-    (selectedCarparkData.rates.hourly * parkingDuration[0]) + 
-    (selectedCarparkData.rates.evCharging * chargingDuration[0] * 25) : 0; // 25 kWh average
+    (selectedCarparkData.rates.hourly * parkingDuration[0]) : 0;
 
   return (
     <div className="h-full overflow-y-auto">
@@ -119,19 +117,7 @@ export function PremiumFeatures({ isPremium, onViewChange }: PremiumFeaturesProp
                   />
                 </div>
 
-                <div>
-                  <label className="text-sm mb-2 block">
-                    EV Charging: {chargingDuration[0]} hours
-                  </label>
-                  <Slider
-                    value={chargingDuration}
-                    onValueChange={setChargingDuration}
-                    max={4}
-                    min={0}
-                    step={0.25}
-                    className="w-full"
-                  />
-                </div>
+
               </CardContent>
             </Card>
 
@@ -146,21 +132,14 @@ export function PremiumFeatures({ isPremium, onViewChange }: PremiumFeaturesProp
                       <span>Parking ({parkingDuration[0]}h)</span>
                       <span>S${(selectedCarparkData.rates.hourly * parkingDuration[0]).toFixed(2)}</span>
                     </div>
-                    {chargingDuration[0] > 0 && (
-                      <div className="flex justify-between">
-                        <span>EV Charging ({chargingDuration[0]}h)</span>
-                        <span>S${(selectedCarparkData.rates.evCharging * chargingDuration[0] * 25).toFixed(2)}</span>
-                      </div>
-                    )}
+
                     <div className="border-t pt-2">
                       <div className="flex justify-between text-lg">
                         <span>Total Cost</span>
                         <span>S${totalCost.toFixed(2)}</span>
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      * EV charging calculated at 25 kWh average consumption
-                    </div>
+
                   </div>
                 )}
               </CardContent>
