@@ -18,13 +18,15 @@ export function calculateDistance(
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c;
   return Math.round(distance * 10) / 10; // Round to 1 decimal place
 }
+
+
 
 /**
  * Estimate driving time from distance (fallback when API unavailable)
@@ -76,12 +78,12 @@ export async function fetchDrivingTimes(
   destinations: CarparkLocation[]
 ): Promise<Map<string, DrivingTimeResult>> {
   const results = new Map<string, DrivingTimeResult>();
-  
+
   try {
     // Check if we should use Google Maps API instead
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    const useGoogleMaps = apiKey && import.meta.env.VITE_USE_GOOGLE_MAPS === 'true';
-    
+    const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY;
+    const useGoogleMaps = apiKey && (import.meta as any).env?.VITE_USE_GOOGLE_MAPS === 'true';
+
     if (useGoogleMaps) {
       // If you have a backend proxy for Google Maps, use it here
       console.log('Google Maps API not directly supported in browser due to CORS');
@@ -96,7 +98,7 @@ export async function fetchDrivingTimes(
         const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=false`;
 
         const response = await fetch(url);
-        
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -135,7 +137,7 @@ export async function fetchDrivingTimes(
 
     console.log(`Fetched driving times for ${results.size} destinations using OSRM`);
     return results;
-    
+
   } catch (error) {
     console.error('Error fetching driving times:', error);
     // Fallback to estimated times for all destinations
@@ -179,23 +181,23 @@ export async function fetchDrivingTimesWithCache(
 ): Promise<Map<string, DrivingTimeResult>> {
   const cacheKey = getCacheKey(origin);
   const cached = drivingTimeCache.get(cacheKey);
-  
+
   const now = Date.now();
-  
+
   // Check if cache is valid
   if (cached && (now - cached.timestamp) < CACHE_DURATION_MS) {
     console.log('Using cached driving times');
     return cached.data;
   }
-  
+
   // Fetch fresh data
   const data = await fetchDrivingTimes(origin, destinations);
-  
+
   // Update cache
   drivingTimeCache.set(cacheKey, {
     data,
     timestamp: now
   });
-  
+
   return data;
 }

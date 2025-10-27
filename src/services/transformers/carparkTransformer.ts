@@ -136,7 +136,6 @@ export class CoordinateTransformer {
 
       return { lat, lng };
     } catch (error) {
-      console.error('Coordinate transformation error:', error);
       // Return default Singapore coordinates as fallback
       return { lat: 1.3521, lng: 103.8198 };
     }
@@ -227,7 +226,6 @@ export class CarparkTransformer {
         lot_type: apiData.lot_type || '',
       };
     } catch (error) {
-      console.error('Error transforming carpark info:', error);
       throw new Error(`Failed to transform carpark data for ${apiData.carpark_number}`);
     }
   }
@@ -247,7 +245,6 @@ export class CarparkTransformer {
         availableLots,
       };
     } catch (error) {
-      console.error('Error transforming availability data:', error);
       return {
         carparkId: apiData.carpark_number,
         availableLots: 0,
@@ -296,15 +293,13 @@ export class CarparkTransformer {
 
           carparks.push(carpark);
         } catch (error) {
-          console.error(`Failed to process carpark ${info.carpark_number}:`, error);
-          // Continue processing other carparks
+          // Skip invalid carpark data and continue processing others
         }
       }
 
       console.log(`Successfully transformed ${carparks.length} carparks`);
       return carparks;
     } catch (error) {
-      console.error('Error combining carpark data:', error);
       return [];
     }
   }
@@ -489,7 +484,6 @@ export class CarparkTransformer {
 
       return true;
     } catch (error) {
-      console.error('Carpark validation error:', error);
       return false;
     }
   }

@@ -111,6 +111,8 @@ export function MapView({
     enableRealTimes: true, // Set to true to use OSRM API
   });
 
+
+
   const getUserLocation = () => {
     if (!navigator.geolocation) {
       return;
@@ -120,17 +122,27 @@ export function MapView({
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setUserLocation({
+        const location = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        });
+        };
+
+        setUserLocation(location);
         setIsLoadingLocation(false);
       },
       (error) => {
-        console.log(
+        console.error(
           "Location access denied or unavailable:",
           error,
         );
+        
+        // For testing purposes, use a default Singapore location
+        const defaultLocation = {
+          lat: 1.3521, // Singapore city center
+          lng: 103.8198
+        };
+
+        setUserLocation(defaultLocation);
         setIsLoadingLocation(false);
       },
       {
@@ -456,6 +468,11 @@ export function MapView({
     setVisibleCount(5);
   }, [carparksInBounds.length]);
 
+  // Automatically request user location on mount
+  useEffect(() => {
+    getUserLocation();
+  }, []);
+
   // Handle map bounds change
   const handleBoundsChange = useCallback(
     (bounds: {
@@ -742,6 +759,7 @@ export function MapView({
                   <Loader2 className="w-3 h-3 animate-spin text-blue-600 dark:text-blue-400" />
                 )}
               </div>
+
             </div>
           ) : (
             <div className="mt-3 p-2 bg-muted rounded-lg border border-border">
@@ -776,10 +794,10 @@ export function MapView({
             <div className="flex items-center gap-2">
               <h3>
                 {searchLocation
-                  ? `Within ${searchRadius[0]}km (${carparksInBounds.length})`
+                  ? `Within ${searchRadius[0]}km`
                   : searchQuery && !isPostalCode(searchQuery)
-                  ? `Search Results (${carparksInBounds.length})`
-                  : `In View (${carparksInBounds.length})`
+                  ? `Search Results`
+                  : `In View`
                 }
               </h3>
               {(selectedLotTypes.length > 0 || selectedCarparkTypes.length > 0 || selectedPaymentMethods.length > 0) && (

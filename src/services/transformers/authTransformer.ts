@@ -165,7 +165,6 @@ export class AuthTransformer {
 
       return true;
     } catch (error) {
-      console.error('User validation error:', error);
       return false;
     }
   }
@@ -219,7 +218,6 @@ export class AuthTransformer {
 
       return JSON.stringify(storageData);
     } catch (error) {
-      console.error('Error serializing user for storage:', error);
       throw new Error('Failed to serialize user data');
     }
   }
@@ -246,7 +244,6 @@ export class AuthTransformer {
 
       return user;
     } catch (error) {
-      console.error('Error deserializing user from storage:', error);
       throw new Error('Failed to deserialize user data');
     }
   }

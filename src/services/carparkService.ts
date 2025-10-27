@@ -30,8 +30,6 @@ export class CarparkService {
       console.log(`Successfully processed ${carparks.length} carparks`);
       return carparks;
     } catch (error) {
-      console.error('Failed to fetch carpark data:', error);
-      
       // Try to return cached data as fallback
       const cachedCarparks = await this.getCachedCarparks();
       if (cachedCarparks.length > 0) {
@@ -101,8 +99,6 @@ export class CarparkService {
 
       return records;
     } catch (error) {
-      console.error('Failed to fetch carpark info:', error);
-      
       // Try to get expired cache as fallback
       const expiredCache = await cacheManager.get<CarparkInfoApiResponse[]>(
         this.CACHE_NAMESPACE,
@@ -165,8 +161,6 @@ export class CarparkService {
       console.log(`Cached ${records.length} availability records`);
       return records;
     } catch (error) {
-      console.error('Failed to fetch availability data:', error);
-      
       // Try to get expired cache as fallback
       const expiredCache = await cacheManager.get<CarparkAvailabilityApiResponse[]>(
         this.CACHE_NAMESPACE,
@@ -193,7 +187,6 @@ export class CarparkService {
       );
       return cached || [];
     } catch (error) {
-      console.error('Failed to get cached carparks:', error);
       return [];
     }
   }
@@ -210,7 +203,7 @@ export class CarparkService {
         { ttl: this.INFO_CACHE_TTL }
       );
     } catch (error) {
-      console.error('Failed to cache processed carparks:', error);
+      // Cache operation failed, continue silently
     }
   }
 
@@ -221,9 +214,9 @@ export class CarparkService {
     try {
       console.log('Clearing carpark data cache...');
       await cacheManager.invalidate(this.CACHE_NAMESPACE);
-      console.log('Carpark cache cleared successfully');
+
     } catch (error) {
-      console.error('Failed to clear carpark cache:', error);
+      // Cache clear failed, continue silently
     }
   }
 
@@ -245,7 +238,6 @@ export class CarparkService {
       
       return carparks;
     } catch (error) {
-      console.error('Failed to refresh carpark data:', error);
       throw error;
     }
   }
@@ -279,7 +271,6 @@ export class CarparkService {
       
       return carpark;
     } catch (error) {
-      console.error(`Failed to get carpark ${carparkId}:`, error);
       return null;
     }
   }
