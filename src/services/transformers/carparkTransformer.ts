@@ -169,10 +169,15 @@ export class CarparkTransformer {
    */
   static transformCarparkInfo(apiData: CarparkInfoApiResponse): Partial<Carpark> {
     try {
-      const { lat, lng } = CoordinateTransformer.svy21ToWgs84(
-        Number(apiData.x_coord),
-        Number(apiData.y_coord)
-      );
+      // Convert string coordinates to numbers
+      const xCoord = parseFloat(apiData.x_coord);
+      const yCoord = parseFloat(apiData.y_coord);
+
+      if (isNaN(xCoord) || isNaN(yCoord)) {
+        throw new Error(`Invalid coordinates: x=${apiData.x_coord}, y=${apiData.y_coord}`);
+      }
+
+      const { lat, lng } = CoordinateTransformer.svy21ToWgs84(xCoord, yCoord);
 
       // Parse total lots with validation
       const totalLots = apiData.total_lots && !isNaN(Number(apiData.total_lots))
@@ -191,6 +196,15 @@ export class CarparkTransformer {
       // Parse payment methods from parking system type
       const paymentMethods = this.parsePaymentMethods(apiData.type_of_parking_system);
 
+      // Parse operating hours from parking_info
+      const operatingHours = this.parseOperatingHours(apiData.parking_info);
+
+      // Parse features from parking_info and other fields
+      const features = this.parseFeatures(apiData);
+
+      // Determine carpark type from car_park_type
+      const carparkType = this.determineCarparkType(apiData.car_park_type);
+
       return {
         id: apiData.carpark_number,
         name: apiData.name || `Carpark ${apiData.carpark_number}`,
@@ -200,13 +214,13 @@ export class CarparkTransformer {
         coordinates: { lat, lng },
         totalLots,
         rates: {
-          hourly: rate30min, // Note: stores 30-min rate as per existing logic
+          hourly: rate30min * 2, // Convert 30-min rate to hourly
           daily: dailyRate,
-          evCharging: 0, // Default value
+          evCharging: 0, // Default value, could be enhanced based on ev_lot_location
         },
-        type: 'HDB', // Default type
-        features: [],
-        operatingHours: '24 hours',
+        type: carparkType,
+        features,
+        operatingHours,
         paymentMethods,
         car_park_type: apiData.car_park_type || '',
         type_of_parking_system: apiData.type_of_parking_system || '',
@@ -227,7 +241,7 @@ export class CarparkTransformer {
   } {
     try {
       const availableLots = Number(apiData.lots_available) || 0;
-      
+
       return {
         carparkId: apiData.carpark_number,
         availableLots,
@@ -276,8 +290,8 @@ export class CarparkTransformer {
           const carpark: Carpark = {
             ...transformedInfo,
             availableLots,
-            evLots: 0, // Default values
-            availableEvLots: 0,
+            evLots: this.parseEvLots(info.ev_lot_location),
+            availableEvLots: 0, // Would need separate API for real-time EV availability
           } as Carpark;
 
           carparks.push(carpark);
@@ -322,6 +336,133 @@ export class CarparkTransformer {
     }
 
     return paymentMethods;
+  }
+
+  /**
+   * Parse operating hours from parking_info
+   */
+  private static parseOperatingHours(parkingInfo?: CarparkInfoApiResponse['parking_info']): string {
+    if (!parkingInfo) {
+      return '24 hours';
+    }
+
+    const { free_parking, night_parking, short_term_parking } = parkingInfo;
+
+    // If there's free parking info, use that as primary operating hours info
+    if (free_parking && free_parking !== 'NO') {
+      return `Free parking: ${free_parking}`;
+    }
+
+    // If night parking is available, assume 24 hours
+    if (night_parking === 'YES') {
+      return '24 hours';
+    }
+
+    // If short term parking is whole day
+    if (short_term_parking === 'WHOLE DAY') {
+      return '24 hours';
+    }
+
+    return '24 hours'; // Default
+  }
+
+  /**
+   * Parse features from API data
+   */
+  private static parseFeatures(apiData: CarparkInfoApiResponse): string[] {
+    const features: string[] = [];
+
+    // Add features based on parking_info
+    if (apiData.parking_info) {
+      const { free_parking, night_parking, short_term_parking } = apiData.parking_info;
+
+      if (free_parking && free_parking !== 'NO') {
+        features.push('Free Parking Available');
+      }
+
+      if (night_parking === 'YES') {
+        features.push('Night Parking');
+      }
+
+      if (short_term_parking === 'WHOLE DAY') {
+        features.push('All Day Parking');
+      }
+    }
+
+    // Add features based on parking system
+    if (apiData.type_of_parking_system?.toUpperCase().includes('ELECTRONIC')) {
+      features.push('Electronic Payment');
+    }
+
+    // Add EV charging info
+    if (apiData.ev_lot_location && !apiData.ev_lot_location.toLowerCase().includes('no ev')) {
+      features.push('EV Charging Available');
+    }
+
+    // Add gantry height info if available
+    if (apiData.gantry_height && apiData.gantry_height !== '0') {
+      features.push(`Height Limit: ${apiData.gantry_height}m`);
+    }
+
+    return features;
+  }
+
+  /**
+   * Determine carpark type from car_park_type
+   */
+  private static determineCarparkType(carParkType?: string): Carpark['type'] {
+    if (!carParkType) {
+      return 'HDB';
+    }
+
+    const type = carParkType.toUpperCase();
+
+    if (type.includes('SURFACE') || type.includes('HDB')) {
+      return 'HDB';
+    }
+
+    if (type.includes('MULTI-STOREY') || type.includes('MSCP')) {
+      return 'HDB'; // Multi-storey car parks are typically HDB
+    }
+
+    if (type.includes('BASEMENT') || type.includes('COMMERCIAL')) {
+      return 'Commercial';
+    }
+
+    if (type.includes('SHOPPING') || type.includes('MALL')) {
+      return 'Shopping Mall';
+    }
+
+    return 'HDB'; // Default
+  }
+
+  /**
+   * Parse EV lots from ev_lot_location field
+   */
+  private static parseEvLots(evLotLocation?: string): number {
+    if (!evLotLocation) {
+      return 0;
+    }
+
+    const location = evLotLocation.toLowerCase();
+
+    // If explicitly states no EV chargers
+    if (location.includes('no ev') || location.includes('nil')) {
+      return 0;
+    }
+
+    // Try to extract number from the string (e.g., "2 EV lots available")
+    const numberMatch = evLotLocation.match(/(\d+)/);
+    if (numberMatch) {
+      return parseInt(numberMatch[1], 10);
+    }
+
+    // If EV location is mentioned but no specific number, assume at least 1
+    if (location.includes('ev') || location.includes('electric')) {
+      return 1;
+    }
+
+    return 0;
   }
 
   /**

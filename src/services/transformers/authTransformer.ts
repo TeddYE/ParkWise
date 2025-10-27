@@ -7,124 +7,159 @@ export class AuthTransformer {
   /**
    * Transform login API response to User object
    */
-  static transformLoginResponse(apiResponse: LoginApiResponse, email: string): User {
+  static transformLoginResponse(apiData: LoginApiResponse, email: string): User {
     try {
-      // Parse profile data (can be string or object)
-      const profile = typeof apiResponse.profile === 'string' 
-        ? JSON.parse(apiResponse.profile) 
-        : apiResponse.profile;
+      // Parse favorite carparks from JSON string
+      let favoriteCarparks: string[] = [];
+      if (apiData.fav_carparks) {
+        try {
+          favoriteCarparks = JSON.parse(apiData.fav_carparks);
+          if (!Array.isArray(favoriteCarparks)) {
+            favoriteCarparks = [];
+          }
+        } catch (error) {
+          console.warn('Failed to parse favorite carparks:', error);
+          favoriteCarparks = [];
+        }
+      }
+
+      // Parse subscription end date
+      let subscriptionExpiry: Date | undefined;
+      if (apiData.subscription_end_date) {
+        try {
+          subscriptionExpiry = new Date(apiData.subscription_end_date);
+          // Validate the date
+          if (isNaN(subscriptionExpiry.getTime())) {
+            subscriptionExpiry = undefined;
+          }
+        } catch (error) {
+          console.warn('Failed to parse subscription end date:', error);
+          subscriptionExpiry = undefined;
+        }
+      }
+
+      // Determine subscription status
+      const subscription = this.determineSubscriptionStatus(
+        apiData.is_premium,
+        subscriptionExpiry
+      );
 
       return {
-        user_id: apiResponse.user_id,
-        name: profile?.name,
+        user_id: apiData.user_id,
         email: email,
-        subscription: profile?.is_premium === 'yes' ? 'premium' : 'free',
-        subscriptionExpiry: profile?.subscriptionExpiry 
-          ? new Date(profile.subscriptionExpiry) 
-          : undefined,
-        favoriteCarparks: profile?.favoriteCarparks || [],
+        subscription,
+        subscriptionExpiry,
+        favoriteCarparks,
       };
     } catch (error) {
       console.error('Error transforming login response:', error);
-      
-      // Return minimal user object as fallback
-      return {
-        user_id: apiResponse.user_id,
-        email: email,
-        subscription: 'free',
-        favoriteCarparks: [],
-      };
+      throw new Error('Failed to transform login response');
     }
   }
 
   /**
    * Transform signup API response to User object
    */
-  static transformSignupResponse(apiResponse: SignupApiResponse, email: string): User {
+  static transformSignupResponse(apiData: SignupApiResponse, email: string): User {
     try {
-      const profile = apiResponse.profile;
+      // Parse favorite carparks from JSON string
+      let favoriteCarparks: string[] = [];
+      if (apiData.fav_carparks) {
+        try {
+          favoriteCarparks = JSON.parse(apiData.fav_carparks);
+          if (!Array.isArray(favoriteCarparks)) {
+            favoriteCarparks = [];
+          }
+        } catch (error) {
+          console.warn('Failed to parse favorite carparks:', error);
+          favoriteCarparks = [];
+        }
+      }
+
+      // Parse subscription end date
+      let subscriptionExpiry: Date | undefined;
+      if (apiData.subscription_end_date) {
+        try {
+          subscriptionExpiry = new Date(apiData.subscription_end_date);
+          // Validate the date
+          if (isNaN(subscriptionExpiry.getTime())) {
+            subscriptionExpiry = undefined;
+          }
+        } catch (error) {
+          console.warn('Failed to parse subscription end date:', error);
+          subscriptionExpiry = undefined;
+        }
+      }
+
+      // Determine subscription status
+      const subscription = this.determineSubscriptionStatus(
+        apiData.is_premium || 'no',
+        subscriptionExpiry
+      );
 
       return {
-        user_id: apiResponse.user_id || email, // Fallback to email if no user_id
-        name: profile?.name,
+        user_id: apiData.user_id,
         email: email,
-        subscription: profile?.is_premium === 'yes' ? 'premium' : 'free',
-        subscriptionExpiry: profile?.subscriptionExpiry 
-          ? new Date(profile.subscriptionExpiry) 
-          : undefined,
-        favoriteCarparks: profile?.favoriteCarparks || [],
+        subscription,
+        subscriptionExpiry,
+        favoriteCarparks,
       };
     } catch (error) {
       console.error('Error transforming signup response:', error);
-      
-      // Return minimal user object as fallback
-      return {
-        user_id: email,
-        email: email,
-        subscription: 'free',
-        favoriteCarparks: [],
-      };
+      throw new Error('Failed to transform signup response');
     }
   }
 
   /**
-   * Transform user object for storage (serialize dates, etc.)
+   * Determine subscription status from API data
    */
-  static serializeUserForStorage(user: User): string {
-    try {
-      const serializable = {
-        ...user,
-        subscriptionExpiry: user.subscriptionExpiry?.toISOString(),
-      };
-      return JSON.stringify(serializable);
-    } catch (error) {
-      console.error('Error serializing user for storage:', error);
-      throw new Error('Failed to serialize user data');
+  private static determineSubscriptionStatus(
+    isPremium: string,
+    subscriptionExpiry?: Date
+  ): 'free' | 'premium' {
+    // Check if premium flag is set
+    if (isPremium !== 'yes') {
+      return 'free';
     }
+
+    // If premium flag is set, check expiry date
+    if (!subscriptionExpiry) {
+      return 'premium'; // No expiry date means permanent premium
+    }
+
+    // Check if subscription is still active
+    const now = new Date();
+    if (subscriptionExpiry > now) {
+      return 'premium';
+    }
+
+    return 'free'; // Subscription expired
   }
 
   /**
-   * Transform stored user data back to User object
+   * Validate user data integrity
    */
-  static deserializeUserFromStorage(storedData: string): User {
-    try {
-      const parsed = JSON.parse(storedData);
-      
-      return {
-        ...parsed,
-        subscriptionExpiry: parsed.subscriptionExpiry 
-          ? new Date(parsed.subscriptionExpiry) 
-          : undefined,
-      };
-    } catch (error) {
-      console.error('Error deserializing user from storage:', error);
-      throw new Error('Failed to deserialize user data');
-    }
-  }
-
-  /**
-   * Validate user object integrity
-   */
-  static validateUser(user: Partial<User>): boolean {
+  static validateUser(user: User): boolean {
     try {
       // Required fields validation
-      if (!user.user_id || !user.email || !user.subscription) {
+      if (!user.user_id || typeof user.user_id !== 'string') {
         return false;
       }
 
-      // Email format validation (basic)
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(user.email)) {
+      if (!user.email || typeof user.email !== 'string') {
         return false;
       }
 
-      // Subscription validation
-      if (!['free', 'premium'].includes(user.subscription)) {
+      if (!user.subscription || !['free', 'premium'].includes(user.subscription)) {
         return false;
       }
 
-      // Favorite carparks validation
+      // Optional fields validation
       if (user.favoriteCarparks && !Array.isArray(user.favoriteCarparks)) {
+        return false;
+      }
+
+      if (user.subscriptionExpiry && !(user.subscriptionExpiry instanceof Date)) {
         return false;
       }
 
@@ -136,48 +171,142 @@ export class AuthTransformer {
   }
 
   /**
-   * Sanitize user data for client-side use (remove sensitive info)
-   */
-  static sanitizeUserData(user: User): User {
-    // For now, we don't have sensitive data to remove
-    // But this method provides a place to add sanitization logic
-    return {
-      ...user,
-    };
-  }
-
-  /**
-   * Check if user subscription is active
+   * Check if user's subscription is still active
    */
   static isSubscriptionActive(user: User): boolean {
-    if (user.subscription === 'free') {
-      return true; // Free subscription is always active
+    if (user.subscription !== 'premium') {
+      return true; // Free users are always "active"
     }
 
-    if (user.subscription === 'premium') {
-      if (!user.subscriptionExpiry) {
-        return false; // Premium without expiry date is inactive
-      }
-      return new Date() < user.subscriptionExpiry;
+    if (!user.subscriptionExpiry) {
+      return true; // No expiry date means permanent premium
     }
 
-    return false;
+    const now = new Date();
+    return user.subscriptionExpiry > now;
   }
 
   /**
    * Get user display name
    */
   static getUserDisplayName(user: User): string {
-    if (user.name && user.name.trim()) {
-      return user.name.trim();
+    if (user.name) {
+      return user.name;
     }
-    
-    // Extract name from email if no name provided
+
     if (user.email) {
-      const emailPart = user.email.split('@')[0];
-      return emailPart.charAt(0).toUpperCase() + emailPart.slice(1);
+      // Extract name from email (before @)
+      const emailName = user.email.split('@')[0];
+      return emailName.charAt(0).toUpperCase() + emailName.slice(1);
     }
-    
+
     return 'User';
+  }
+
+  /**
+   * Serialize user for localStorage storage
+   */
+  static serializeUserForStorage(user: User): string {
+    try {
+      const storageData = {
+        user_id: user.user_id,
+        email: user.email,
+        name: user.name,
+        subscription: user.subscription,
+        subscriptionExpiry: user.subscriptionExpiry?.toISOString(),
+        favoriteCarparks: user.favoriteCarparks || [],
+      };
+
+      return JSON.stringify(storageData);
+    } catch (error) {
+      console.error('Error serializing user for storage:', error);
+      throw new Error('Failed to serialize user data');
+    }
+  }
+
+  /**
+   * Deserialize user from localStorage
+   */
+  static deserializeUserFromStorage(storedData: string): User {
+    try {
+      const parsed = JSON.parse(storedData);
+
+      const user: User = {
+        user_id: parsed.user_id,
+        email: parsed.email,
+        name: parsed.name,
+        subscription: parsed.subscription,
+        favoriteCarparks: parsed.favoriteCarparks || [],
+      };
+
+      // Parse subscription expiry if present
+      if (parsed.subscriptionExpiry) {
+        user.subscriptionExpiry = new Date(parsed.subscriptionExpiry);
+      }
+
+      return user;
+    } catch (error) {
+      console.error('Error deserializing user from storage:', error);
+      throw new Error('Failed to deserialize user data');
+    }
+  }
+
+  /**
+   * Transform user data for API requests (if needed)
+   */
+  static transformUserForApi(user: User): any {
+    return {
+      user_id: user.user_id,
+      email: user.email,
+      name: user.name,
+      is_premium: user.subscription === 'premium' ? 'yes' : 'no',
+      subscription_end_date: user.subscriptionExpiry?.toISOString(),
+      fav_carparks: JSON.stringify(user.favoriteCarparks || []),
+    };
+  }
+
+  /**
+   * Update user's favorite carparks
+   */
+  static updateFavoriteCarparks(user: User, carparkIds: string[]): User {
+    return {
+      ...user,
+      favoriteCarparks: [...carparkIds],
+    };
+  }
+
+  /**
+   * Add carpark to user's favorites
+   */
+  static addFavoriteCarpark(user: User, carparkId: string): User {
+    const currentFavorites = user.favoriteCarparks || [];
+    
+    if (currentFavorites.includes(carparkId)) {
+      return user; // Already in favorites
+    }
+
+    return {
+      ...user,
+      favoriteCarparks: [...currentFavorites, carparkId],
+    };
+  }
+
+  /**
+   * Remove carpark from user's favorites
+   */
+  static removeFavoriteCarpark(user: User, carparkId: string): User {
+    const currentFavorites = user.favoriteCarparks || [];
+    
+    return {
+      ...user,
+      favoriteCarparks: currentFavorites.filter(id => id !== carparkId),
+    };
+  }
+
+  /**
+   * Check if carpark is in user's favorites
+   */
+  static isFavoriteCarpark(user: User, carparkId: string): boolean {
+    return (user.favoriteCarparks || []).includes(carparkId);
   }
 }

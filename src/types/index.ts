@@ -160,16 +160,23 @@ export interface MapState {
 // API Response Types
 export interface CarparkInfoApiResponse {
   carpark_number: string;
-  name: string;
   address: string;
-  x_coord: number;
-  y_coord: number;
   car_park_type: string;
   type_of_parking_system: string;
   lot_type: string;
+  x_coord: string; // API returns as string
+  y_coord: string; // API returns as string
   total_lots?: number;
   current_rate_30min?: number;
   active_cap_amount?: number;
+  parking_info?: {
+    free_parking?: string;
+    night_parking?: string;
+    short_term_parking?: string;
+  };
+  gantry_height?: string;
+  ev_lot_location?: string;
+  name?: string; // Optional since not always present in API
 }
 
 export interface CarparkAvailabilityApiResponse {
@@ -189,23 +196,19 @@ export interface SignupCredentials {
 }
 
 export interface LoginApiResponse {
+  ok: boolean;
   user_id: string;
-  profile: string | {
-    name?: string;
-    is_premium?: string;
-    subscriptionExpiry?: string;
-    favoriteCarparks?: string[];
-  };
+  is_premium: string;
+  subscription_end_date: string;
+  fav_carparks: string; // JSON string array
 }
 
 export interface SignupApiResponse {
+  ok: boolean;
   user_id: string;
-  profile?: {
-    name?: string;
-    is_premium?: string;
-    subscriptionExpiry?: string;
-    favoriteCarparks?: string[];
-  };
+  is_premium?: string;
+  subscription_end_date?: string;
+  fav_carparks?: string; // JSON string array
   error?: string;
 }
 

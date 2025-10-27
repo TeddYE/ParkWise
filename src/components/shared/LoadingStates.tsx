@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react';
-import { cn } from '../../utils/cn';
+import { cn } from '@/utils/cn';
 import { memo, useMemo } from 'react';
 
 interface LoadingSpinnerProps {
