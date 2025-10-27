@@ -396,11 +396,13 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
 
       // Create tooltip content (shows on hover) with sleek design
       const displayName = getCarparkMapDisplayName(carpark, 28);
+
+
       const carparkType = carpark.car_park_type ? carpark.car_park_type.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ') : '';
       const tooltipContent = `
         <div style="padding: 12px; min-width: 240px; max-width: 300px;">
           <div style="margin-bottom: 8px;">
-            <strong style="font-size: 15px; color: #111827; font-weight: 600; word-wrap: break-word; overflow-wrap: break-word; display: block;">${displayName}</strong>
+            <strong style="font-size: 15px; color: #111827; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 260px;">${displayName}</strong>
           </div>
 
           ${carparkType ? `

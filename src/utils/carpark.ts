@@ -29,25 +29,9 @@ export function getCarparkMapDisplayName(carpark: Carpark, maxLength: number = 2
     ? carpark.name 
     : carpark.address || 'Unknown Location';
 
-  // Smart truncation for addresses
+  // Simple character truncation
   if (displayName.length > maxLength) {
-    // Try to truncate at word boundaries for better readability
-    const words = displayName.split(' ');
-    let truncated = '';
-    
-    for (const word of words) {
-      if ((truncated + word).length > maxLength - 3) {
-        break;
-      }
-      truncated += (truncated ? ' ' : '') + word;
-    }
-    
-    // If we couldn't fit any complete words, just truncate at character limit
-    if (!truncated) {
-      truncated = displayName.substring(0, maxLength - 3);
-    }
-    
-    return truncated + '...';
+    return displayName.substring(0, maxLength - 3) + '...';
   }
 
   return displayName;
