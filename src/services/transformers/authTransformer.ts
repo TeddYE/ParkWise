@@ -280,7 +280,7 @@ export class AuthTransformer {
    */
   static addFavoriteCarpark(user: User, carparkId: string): User {
     const currentFavorites = user.favoriteCarparks || [];
-    
+
     if (currentFavorites.includes(carparkId)) {
       return user; // Already in favorites
     }
@@ -296,7 +296,7 @@ export class AuthTransformer {
    */
   static removeFavoriteCarpark(user: User, carparkId: string): User {
     const currentFavorites = user.favoriteCarparks || [];
-    
+
     return {
       ...user,
       favoriteCarparks: currentFavorites.filter(id => id !== carparkId),
@@ -308,5 +308,123 @@ export class AuthTransformer {
    */
   static isFavoriteCarpark(user: User, carparkId: string): boolean {
     return (user.favoriteCarparks || []).includes(carparkId);
+  }
+
+  /**
+   * Calculate subscription end date based on plan and current status
+   */
+  static calculateSubscriptionEndDate(user: User, plan: 'monthly' | 'annual'): Date {
+    const now = new Date();
+    let startDate: Date;
+
+    // If user is already premium and has an active subscription, extend from current end date
+    if (user.subscription === 'premium' && user.subscriptionExpiry && this.isSubscriptionActive(user)) {
+      startDate = user.subscriptionExpiry;
+    } else {
+      // If user is free or subscription expired, start from today
+      startDate = now;
+    }
+
+    const endDate = new Date(startDate);
+
+    if (plan === 'monthly') {
+      endDate.setMonth(endDate.getMonth() + 1);
+    } else if (plan === 'annual') {
+      endDate.setFullYear(endDate.getFullYear() + 1);
+    }
+
+    return endDate;
+  }
+
+  /**
+   * Create subscription request payload
+   */
+  static createSubscriptionRequest(user: User, plan: 'monthly' | 'annual'): { user_id: string; subscription_end_date: string } {
+    const endDate = this.calculateSubscriptionEndDate(user, plan);
+
+    return {
+      user_id: user.user_id,
+      subscription_end_date: endDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+    };
+  }
+
+  /**
+   * Transform subscription response to updated user
+   */
+  static transformSubscriptionResponse(user: User, subscriptionResponse: any): User {
+    try {
+      let subscriptionExpiry: Date | undefined;
+
+      if (subscriptionResponse.subscription_end_date) {
+        subscriptionExpiry = new Date(subscriptionResponse.subscription_end_date);
+
+        // Validate the date
+        if (isNaN(subscriptionExpiry.getTime())) {
+          throw new Error('Invalid subscription end date received');
+        }
+      }
+
+      return {
+        ...user,
+        subscription: 'premium',
+        subscriptionExpiry,
+      };
+    } catch (error) {
+      console.error('Error transforming subscription response:', error);
+      throw new Error('Failed to transform subscription response');
+    }
+  }
+
+  /**
+   * Get subscription status info for display
+   */
+  static getSubscriptionInfo(user: User): {
+    status: 'free' | 'premium' | 'expired';
+    daysRemaining?: number;
+    expiryDate?: Date;
+    isActive: boolean;
+  } {
+    if (user.subscription !== 'premium') {
+      return {
+        status: 'free',
+        isActive: false,
+      };
+    }
+
+    if (!user.subscriptionExpiry) {
+      return {
+        status: 'premium',
+        isActive: true,
+      };
+    }
+
+    const now = new Date();
+    const isActive = user.subscriptionExpiry > now;
+
+    if (!isActive) {
+      return {
+        status: 'expired',
+        expiryDate: user.subscriptionExpiry,
+        isActive: false,
+      };
+    }
+
+    // Calculate days remaining
+    const timeDiff = user.subscriptionExpiry.getTime() - now.getTime();
+    const daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+    return {
+      status: 'premium',
+      daysRemaining,
+      expiryDate: user.subscriptionExpiry,
+      isActive: true,
+    };
+  }
+
+  /**
+   * Check if user can access premium features
+   */
+  static canAccessPremiumFeatures(user: User): boolean {
+    return user.subscription === 'premium' && this.isSubscriptionActive(user);
   }
 }

@@ -30,7 +30,7 @@ export async function updateSubscription(
 ): Promise<UpdateSubscriptionResponse> {
   try {
     const response = await fetch(
-      `${PROFILE_API}/subscription`,
+      PROFILE_API,
       {
         method: "PUT",
         headers: {
@@ -86,7 +86,7 @@ export async function updateFavoriteCarparks(
   favoriteData: UpdateFavoriteCarparksRequest,
 ): Promise<UpdateFavoriteCarparksResponse> {
   try {
-    const response = await fetch(`${PROFILE_API}/favorites`, {
+    const response = await fetch(PROFILE_API, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",

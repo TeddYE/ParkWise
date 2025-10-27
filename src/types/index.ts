@@ -216,3 +216,29 @@ export interface AuthResponse {
   user?: User;
   error?: string;
 }
+
+export interface SubscriptionRequest {
+  user_id: string;
+  subscription_end_date: string; // ISO date string
+}
+
+export interface SubscriptionResponse {
+  user_id: string;
+  subscription_end_date: string;
+  success?: boolean;
+  error?: string;
+}
+
+export interface FavoritesRequest {
+  user_id: string;
+  fav_carparks: string[]; // Array of carpark IDs
+}
+
+export interface FavoritesResponse {
+  user_id: string;
+  fav_carparks: string[]; // Array of carpark IDs
+  success?: boolean;
+  error?: string;
+}
+
+export type SubscriptionPlan = "monthly" | "annual";

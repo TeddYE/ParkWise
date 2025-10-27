@@ -4,4 +4,6 @@ export const API_ENDPOINTS = {
   CARPARK_AVAILABILITY: "https://sy335w2e42.execute-api.ap-southeast-1.amazonaws.com/ava",
   LOGIN: "https://mb036g8g79.execute-api.ap-southeast-1.amazonaws.com/dev/login",
   SIGNUP: "https://mb036g8g79.execute-api.ap-southeast-1.amazonaws.com/dev/signup",
+  SUBSCRIBE: "https://mb036g8g79.execute-api.ap-southeast-1.amazonaws.com/dev/update",
+  UPDATE_FAVORITES: "https://mb036g8g79.execute-api.ap-southeast-1.amazonaws.com/dev/update", // Same endpoint as subscribe
 } as const;

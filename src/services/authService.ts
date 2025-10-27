@@ -338,6 +338,189 @@ export class AuthService {
   }
 
   /**
+   * Subscribe user to premium plan
+   */
+  static async subscribeUser(user: User, plan: 'monthly' | 'annual'): Promise<AuthResponse> {
+    try {
+      const { SubscriptionService } = await import('./subscriptionService');
+      const result = await SubscriptionService.subscribe(user, plan);
+      
+      if (result.error) {
+        return { error: result.error };
+      }
+
+      if (result.user) {
+        // Update stored user data
+        await this.storeUserData(result.user);
+        
+        // Update cache
+        await cacheManager.set(this.CACHE_NAMESPACE, 'current-user', result.user, {
+          ttl: this.TOKEN_CACHE_TTL,
+        });
+
+        return { user: result.user };
+      }
+
+      return { error: 'Subscription failed. Please try again.' };
+    } catch (error) {
+      console.error('Subscription error:', error);
+      return { error: 'Subscription failed. Please try again.' };
+    }
+  }
+
+  /**
+   * Get user's subscription status
+   */
+  static getSubscriptionStatus(user: User): {
+    isPremium: boolean;
+    isActive: boolean;
+    daysRemaining?: number;
+    expiryDate?: Date;
+    canUpgrade: boolean;
+  } {
+    const subscriptionInfo = AuthTransformer.getSubscriptionInfo(user);
+    
+    return {
+      isPremium: user.subscription === 'premium',
+      isActive: subscriptionInfo.isActive,
+      daysRemaining: subscriptionInfo.daysRemaining,
+      expiryDate: subscriptionInfo.expiryDate,
+      canUpgrade: !subscriptionInfo.isActive,
+    };
+  }
+
+  /**
+   * Check if user can access premium features
+   */
+  static canAccessPremiumFeatures(user: User): boolean {
+    return AuthTransformer.canAccessPremiumFeatures(user);
+  }
+
+  /**
+   * Update user's favorite carparks
+   */
+  static async updateUserFavorites(user: User, favoriteCarparks: string[]): Promise<AuthResponse> {
+    try {
+      const { FavoritesService } = await import('./favoritesService');
+      const result = await FavoritesService.updateFavorites(user, favoriteCarparks);
+      
+      if (result.error) {
+        return { error: result.error };
+      }
+
+      if (result.user) {
+        // Update stored user data
+        await this.storeUserData(result.user);
+        
+        // Update cache
+        await cacheManager.set(this.CACHE_NAMESPACE, 'current-user', result.user, {
+          ttl: this.TOKEN_CACHE_TTL,
+        });
+
+        return { user: result.user };
+      }
+
+      return { error: 'Failed to update favorites. Please try again.' };
+    } catch (error) {
+      console.error('Update favorites error:', error);
+      return { error: 'Failed to update favorites. Please try again.' };
+    }
+  }
+
+  /**
+   * Add carpark to user's favorites
+   */
+  static async addFavoriteCarpark(user: User, carparkId: string): Promise<AuthResponse> {
+    try {
+      const { FavoritesService } = await import('./favoritesService');
+      const result = await FavoritesService.addFavorite(user, carparkId);
+      
+      if (result.error) {
+        return { error: result.error };
+      }
+
+      if (result.user) {
+        // Update stored user data
+        await this.storeUserData(result.user);
+        
+        // Update cache
+        await cacheManager.set(this.CACHE_NAMESPACE, 'current-user', result.user, {
+          ttl: this.TOKEN_CACHE_TTL,
+        });
+
+        return { user: result.user };
+      }
+
+      return { error: 'Failed to add favorite. Please try again.' };
+    } catch (error) {
+      console.error('Add favorite error:', error);
+      return { error: 'Failed to add favorite. Please try again.' };
+    }
+  }
+
+  /**
+   * Remove carpark from user's favorites
+   */
+  static async removeFavoriteCarpark(user: User, carparkId: string): Promise<AuthResponse> {
+    try {
+      const { FavoritesService } = await import('./favoritesService');
+      const result = await FavoritesService.removeFavorite(user, carparkId);
+      
+      if (result.error) {
+        return { error: result.error };
+      }
+
+      if (result.user) {
+        // Update stored user data
+        await this.storeUserData(result.user);
+        
+        // Update cache
+        await cacheManager.set(this.CACHE_NAMESPACE, 'current-user', result.user, {
+          ttl: this.TOKEN_CACHE_TTL,
+        });
+
+        return { user: result.user };
+      }
+
+      return { error: 'Failed to remove favorite. Please try again.' };
+    } catch (error) {
+      console.error('Remove favorite error:', error);
+      return { error: 'Failed to remove favorite. Please try again.' };
+    }
+  }
+
+  /**
+   * Toggle carpark favorite status
+   */
+  static async toggleFavoriteCarpark(user: User, carparkId: string): Promise<AuthResponse & { action?: 'added' | 'removed' }> {
+    try {
+      const { FavoritesService } = await import('./favoritesService');
+      const result = await FavoritesService.toggleFavorite(user, carparkId);
+      
+      if (result.error) {
+        return { error: result.error };
+      }
+
+      if (result.user) {
+        // Update stored user data
+        await this.storeUserData(result.user);
+        
+        // Update cache
+        await cacheManager.set(this.CACHE_NAMESPACE, 'current-user', result.user, {
+          ttl: this.TOKEN_CACHE_TTL,
+        });
+
+        return { user: result.user, action: result.action };
+      }
+
+      return { error: 'Failed to toggle favorite. Please try again.' };
+    } catch (error) {
+      console.error('Toggle favorite error:', error);
+      return { error: 'Failed to toggle favorite. Please try again.' };
+    }
+  }
+
+  /**
    * Get authentication cache statistics
    */
   static async getCacheStats(): Promise<{ size: number; namespaces: string[] }> {
