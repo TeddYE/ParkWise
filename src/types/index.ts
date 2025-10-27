@@ -235,9 +235,7 @@ export interface FavoritesRequest {
 }
 
 export interface FavoritesResponse {
-  user_id: string;
-  fav_carparks: string[]; // Array of carpark IDs
-  success?: boolean;
+  updated: boolean;
   error?: string;
 }
 

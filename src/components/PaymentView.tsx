@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from './ui/separator';
 import { Badge } from './ui/badge';
 import { ViewType, User } from '../types';
-import { updateSubscription } from '../services/updateProfileService';
+import { AuthService } from '../services/authService';
 
 interface PaymentViewProps {
   onViewChange: (view: ViewType) => void;
@@ -143,30 +143,17 @@ export function PaymentView({ onViewChange, onPaymentSuccess, user, planType }: 
       expiryDate.setMonth(expiryDate.getMonth() + 1);
     }
 
-    // Call profile update API (demo mode - just sends expiry date)
-    const response = await updateSubscription({
-      user_id: user.user_id,
-      subscription_end_date: expiryDate,
-    });
+    // Call AuthService to subscribe user
+    const response = await AuthService.subscribeUser(user, planType);
 
-    if (!response.success || !response.user) {
+    if (response.error || !response.user) {
       setError(response.error || 'Payment failed. Please try again.');
       setLoading(false);
       return;
     }
 
-    // Preserve existing user data and update subscription
-    const updatedUser = {
-      ...user,
-      subscription: response.user.subscription,
-      subscriptionExpiry: response.user.subscriptionExpiry,
-    };
-
-    // Update user in localStorage
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-
     // Notify parent component of successful payment
-    onPaymentSuccess(updatedUser);
+    onPaymentSuccess(response.user);
     setLoading(false);
   };
 

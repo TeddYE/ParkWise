@@ -14,7 +14,7 @@ import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Carpark, User } from '../types';
 import { toast } from "sonner";
-import { updateFavoriteCarparks } from '../services/updateProfileService';
+import { AuthService } from '../services/authService';
 import { getCarparkDisplayName } from '../utils/carpark';
 import { memo, useCallback, useMemo } from 'react';
 
@@ -55,7 +55,7 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
   
   const handleToggleFavorite = useCallback(async () => {
     if (!user || !onUpdateUser) {
-      toast.error('Please login to save favorites');
+      toast.error('Please sign up to save favorites');
       onViewChange('login');
       return;
     }
@@ -72,13 +72,11 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
     });
     
     // Call API to update favorites
-    const response = await updateFavoriteCarparks({
-      user_id: user.user_id,
-      fav_carparks: updatedFavorites,
-    });
+    const response = await AuthService.toggleFavoriteCarpark(user, carpark.id);
     
-    if (response.success) {
-      toast.success(isFavorite ? 'Removed from favorites' : 'Added to favorites');
+    if (response.user) {
+      onUpdateUser(response.user);
+      toast.success(response.action === 'added' ? 'Added to favorites' : 'Removed from favorites');
     } else {
       // Revert on failure
       onUpdateUser(user);

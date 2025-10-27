@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { User as UserType, Carpark, ViewType } from '../types';
 import { useCarparks } from '../hooks/useCarparks';
 import { toast } from "sonner";
-import { getSubscriptionDaysRemaining, updateFavoriteCarparks } from '../services/updateProfileService';
+import { AuthService } from '../services/authService';
 import { validatePassword } from '../utils/validation';
 
 interface ProfileViewProps {
@@ -43,21 +43,18 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
   }, [carparks, user.favoriteCarparks]);
 
   const handleRemoveFavorite = async (carparkId: string) => {
-    const updatedFavorites = (user.favoriteCarparks || []).filter(id => id !== carparkId);
-    
     // Optimistically update UI
+    const updatedFavorites = (user.favoriteCarparks || []).filter(id => id !== carparkId);
     onUpdateUser({
       ...user,
       favoriteCarparks: updatedFavorites,
     });
     
-    // Call API to update favorites
-    const response = await updateFavoriteCarparks({
-      user_id: user.user_id,
-      fav_carparks: updatedFavorites,
-    });
+    // Call API to remove favorite
+    const response = await AuthService.removeFavoriteCarpark(user, carparkId);
     
-    if (response.success) {
+    if (response.user) {
+      onUpdateUser(response.user);
       toast.success('Removed from favorites');
     } else {
       // Revert on failure

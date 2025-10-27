@@ -44,7 +44,7 @@ import { isPostalCode } from "../utils/postalCode";
 import { geocodePostalCode, geocodeSearch } from "../services/geocodingService";
 import { calculateDistance } from "../utils/distance";
 import { toast } from "sonner";
-import { updateFavoriteCarparks } from "../services/updateProfileService";
+import { AuthService } from "../services/authService";
 
 const MAX_MAP_CARPARKS = 30;
 const LOW_ZOOM_THRESHOLD = 13; // Below this = zoomed out, above = zoomed in
@@ -218,7 +218,7 @@ export function MapView({
     }
 
     if (!user || !onUpdateUser) {
-      toast.error('Please login to save favorites', {
+      toast.error('Please sign up to save favorites', {
         dismissible: true,
         closeButton: true,
       });
@@ -239,13 +239,11 @@ export function MapView({
     });
 
     // Call API to update favorites
-    const response = await updateFavoriteCarparks({
-      user_id: user.user_id,
-      fav_carparks: updatedFavorites,
-    });
+    const response = await AuthService.toggleFavoriteCarpark(user, carparkId);
 
-    if (response.success) {
-      toast.success(isFavorite ? 'Removed from favorites' : 'Added to favorites', {
+    if (response.user) {
+      onUpdateUser(response.user);
+      toast.success(response.action === 'added' ? 'Added to favorites' : 'Removed from favorites', {
         dismissible: true,
         closeButton: true,
       });
