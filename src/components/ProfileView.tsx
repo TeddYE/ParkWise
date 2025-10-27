@@ -13,6 +13,7 @@ import { useCarparks } from '../hooks/useCarparks';
 import { toast } from "sonner";
 import { AuthService } from '../services/authService';
 import { validatePassword } from '../utils/validation';
+import { getCarparkDisplayName } from '../utils/carpark';
 
 interface ProfileViewProps {
   user: UserType;
@@ -340,7 +341,7 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="truncate">{carpark.name}</h4>
+                      <h4 className="truncate">{getCarparkDisplayName(carpark)}</h4>
                       {carpark.availableLots > 0 ? (
                         <Badge className="bg-green-100 text-green-800 border-green-200">
                           {carpark.availableLots} lots

@@ -107,9 +107,7 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
           </Button>
           <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl break-words">{displayName}</h1>
-            {carpark.name && carpark.name.trim() !== '' && (
-              <p className="text-muted-foreground text-sm sm:text-base break-words">{carpark.address}</p>
-            )}
+
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">

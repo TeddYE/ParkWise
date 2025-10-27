@@ -862,11 +862,7 @@ export function MapView({
                         </Badge>
                       </div>
                     </div>
-                    {carpark.name && carpark.name.trim() !== '' && (
-                      <p className="text-xs text-muted-foreground">
-                        {carpark.address}
-                      </p>
-                    )}
+
                     {carpark.car_park_type && (
                       <div className="mt-1">
                         <Badge variant="secondary" className="text-xs">

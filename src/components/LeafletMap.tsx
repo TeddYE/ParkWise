@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Carpark } from '../types';
-import { getCarparkDisplayName } from '../utils/carpark';
+import { getCarparkMapDisplayName } from '../utils/carpark';
 
 interface LeafletMapProps {
   carparks: Carpark[];
@@ -395,18 +395,14 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
       }).addTo(mapInstanceRef.current);
 
       // Create tooltip content (shows on hover) with sleek design
-      const displayName = getCarparkDisplayName(carpark);
+      const displayName = getCarparkMapDisplayName(carpark, 28);
       const carparkType = carpark.car_park_type ? carpark.car_park_type.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ') : '';
       const tooltipContent = `
         <div style="padding: 12px; min-width: 240px; max-width: 300px;">
           <div style="margin-bottom: 8px;">
             <strong style="font-size: 15px; color: #111827; font-weight: 600; word-wrap: break-word; overflow-wrap: break-word; display: block;">${displayName}</strong>
           </div>
-          ${carpark.name && carpark.name.trim() !== '' ? `
-          <div style="font-size: 12px; color: #6b7280; margin-bottom: 6px; line-height: 1.5; word-wrap: break-word; overflow-wrap: break-word;">
-            ${carpark.address}
-          </div>
-          ` : ''}
+
           ${carparkType ? `
           <div style="margin-bottom: 10px;">
             <span style="

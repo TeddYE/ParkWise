@@ -206,7 +206,7 @@ export class CarparkTransformer {
 
       return {
         id: apiData.carpark_number,
-        name: apiData.name || `Carpark ${apiData.carpark_number}`,
+        name: apiData.address || `Carpark ${apiData.carpark_number}`,
         address: apiData.address || 'Address not available',
         latitude: lat,
         longitude: lng,

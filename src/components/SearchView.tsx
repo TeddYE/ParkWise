@@ -382,9 +382,6 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <CardTitle className="text-base sm:text-lg line-clamp-2">{getCarparkDisplayName(carpark)}</CardTitle>
-                  {carpark.name && carpark.name.trim() !== '' && (
-                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">{carpark.address || 'Address not available'}</p>
-                  )}
                 </div>
                 <Badge variant="outline" className="flex-shrink-0 text-xs">
                   {carpark.distance !== undefined ? `${carpark.distance}km` : '-'}
