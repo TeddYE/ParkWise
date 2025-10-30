@@ -40,9 +40,9 @@ import { LeafletMap } from "./LeafletMap";
 import { useDrivingTimes } from "../hooks/useDrivingTimes";
 import { useCarparks } from "../hooks/useCarparks";
 import { getCarparkDisplayName } from "../utils/carpark";
+import { calculateDistance } from "../utils/distance";
 import { isPostalCode } from "../utils/postalCode";
 import { geocodePostalCode, geocodeSearch } from "../services/geocodingService";
-import { calculateDistance } from "../utils/distance";
 import { toast } from "sonner";
 import { AuthService } from "../services/authService";
 
@@ -110,6 +110,34 @@ export function MapView({
     userLocation,
     enableRealTimes: true, // Set to true to use OSRM API
   });
+
+  // Ensure carparks have driving times calculated if user location is available
+  const carparksWithCalculatedTimes = useMemo(() => {
+    if (!userLocation) return carparksWithDistance;
+    
+    return carparksWithDistance.map(carpark => {
+      // If driving time is already calculated, use it
+      if (carpark.drivingTime !== undefined) {
+        return carpark;
+      }
+      
+      // Otherwise, calculate it manually
+      const distance = calculateDistance(
+        userLocation.lat,
+        userLocation.lng,
+        carpark.coordinates.lat,
+        carpark.coordinates.lng
+      );
+      
+      const estimatedDrivingTime = Math.round((distance / 30) * 60); // 30 km/h average speed
+      
+      return {
+        ...carpark,
+        distance,
+        drivingTime: estimatedDrivingTime,
+      };
+    });
+  }, [carparksWithDistance, userLocation]);
 
 
 
@@ -272,27 +300,27 @@ export function MapView({
   // Memoize unique filter options
   const uniqueLotTypes = useMemo(() => Array.from(
     new Set(
-      carparksWithDistance
+      carparksWithCalculatedTimes
         .map((cp) => cp.lot_type)
         .filter((type) => type && type.trim() !== "")
     )
-  ).sort(), [carparksWithDistance]);
+  ).sort(), [carparksWithCalculatedTimes]);
 
   const uniqueCarparkTypes = useMemo(() => Array.from(
     new Set(
-      carparksWithDistance
+      carparksWithCalculatedTimes
         .map((cp) => cp.car_park_type)
         .filter((type) => type && type.trim() !== "")
     )
-  ).sort(), [carparksWithDistance]);
+  ).sort(), [carparksWithCalculatedTimes]);
 
   const uniquePaymentMethods = useMemo(() => Array.from(
     new Set(
-      carparksWithDistance
+      carparksWithCalculatedTimes
         .flatMap((cp) => cp.paymentMethods)
         .filter((method) => method && method.trim() !== "")
     )
-  ).sort(), [carparksWithDistance]);
+  ).sort(), [carparksWithCalculatedTimes]);
 
   // Memoize formatting functions
   const formatLotType = useCallback((lotType: string): string => {
@@ -348,13 +376,13 @@ export function MapView({
 
   // Filter carparks by search query or map bounds
   const carparksInBounds = (() => {
-    let filtered = carparksWithDistance;
+    let filtered = carparksWithCalculatedTimes;
 
     // If there's a search location (postal code or address search)
     if (searchLocation) {
       // Filter by distance from search location
       const radius = searchRadius[0]; // in km
-      filtered = carparksWithDistance
+      filtered = carparksWithCalculatedTimes
         .map((carpark) => ({
           ...carpark,
           searchDistance: calculateDistance(
@@ -371,7 +399,7 @@ export function MapView({
     else if (searchQuery.trim() && !isPostalCode(searchQuery)) {
       // Filter by address text match
       const query = searchQuery.toLowerCase();
-      filtered = carparksWithDistance.filter((carpark) => {
+      filtered = carparksWithCalculatedTimes.filter((carpark) => {
         const address = (carpark.address || '').toLowerCase();
         const name = (carpark.name || '').toLowerCase();
         return address.includes(query) || name.includes(query);
@@ -379,7 +407,7 @@ export function MapView({
     }
     // Default: filter by map bounds
     else if (mapBounds) {
-      filtered = carparksWithDistance.filter((carpark) => {
+      filtered = carparksWithCalculatedTimes.filter((carpark) => {
         return (
           carpark.latitude >= mapBounds.south &&
           carpark.latitude <= mapBounds.north &&

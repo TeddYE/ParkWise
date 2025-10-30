@@ -2,13 +2,8 @@ import { useState } from 'react';
 import { 
   Crown, 
   Calculator, 
-  TrendingUp, 
   Bell, 
-  Target, 
-  Clock, 
-  DollarSign,
-  ChevronDown,
-  ChevronUp
+  Target
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -26,8 +21,6 @@ interface PremiumFeaturesProps {
 
 export function PremiumFeatures({ isPremium, onViewChange }: PremiumFeaturesProps) {
   const [parkingDuration, setParkingDuration] = useState([2]);
-
-  const [showHistorical, setShowHistorical] = useState(false);
   
   // Fetch carparks from the API
   const { carparks: mockCarparks, loading } = useCarparks();
@@ -42,7 +35,7 @@ export function PremiumFeatures({ isPremium, onViewChange }: PremiumFeaturesProp
           <h2 className="text-xl sm:text-2xl mb-4">Premium Features</h2>
           <p className="text-muted-foreground mb-6 text-sm sm:text-base">
             Upgrade to Premium to access smart recommendations, cost calculator, 
-            historical data, and waitlist notifications.
+            and waitlist notifications.
           </p>
           <Button onClick={() => onViewChange('pricing')} className="w-full sm:w-auto">
             Upgrade to Premium - S$3.99/month
@@ -69,10 +62,9 @@ export function PremiumFeatures({ isPremium, onViewChange }: PremiumFeaturesProp
       </div>
 
       <Tabs defaultValue="calculator" className="space-y-4 sm:space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
+        <TabsList className="grid w-full grid-cols-3 h-auto">
           <TabsTrigger value="calculator" className="text-xs sm:text-sm">Calculator</TabsTrigger>
           <TabsTrigger value="recommender" className="text-xs sm:text-sm">Recommender</TabsTrigger>
-          <TabsTrigger value="historical" className="text-xs sm:text-sm">Historical</TabsTrigger>
           <TabsTrigger value="notifications" className="text-xs sm:text-sm">Alerts</TabsTrigger>
         </TabsList>
 
@@ -205,91 +197,7 @@ export function PremiumFeatures({ isPremium, onViewChange }: PremiumFeaturesProp
           </Card>
         </TabsContent>
 
-        {/* Historical Data */}
-        <TabsContent value="historical">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Historical Availability Patterns
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm mb-2 block">Select Carpark for Analysis</label>
-                  <Select value={selectedCarpark} onValueChange={setSelectedCarpark}>
-                    <SelectTrigger className="w-full md:w-80">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockCarparks.map(carpark => (
-                        <SelectItem key={carpark.id} value={carpark.id}>
-                          {carpark.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Peak Hours Analysis</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span>Busiest Time</span>
-                          <span className="text-red-600">12:00 PM - 2:00 PM</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Best Availability</span>
-                          <span className="text-green-600">6:00 AM - 9:00 AM</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Average Occupancy</span>
-                          <span>73%</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Weekly Patterns</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span>Busiest Day</span>
-                          <span className="text-red-600">Friday</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Least Busy</span>
-                          <span className="text-green-600">Sunday</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Weekend vs Weekday</span>
-                          <span>-35% occupancy</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="bg-muted p-4 rounded-lg">
-                  <h4 className="mb-2">💡 Smart Insights</h4>
-                  <ul className="text-sm space-y-1 text-muted-foreground">
-                    <li>• Best time to park: Sunday 8:00 AM (95% availability)</li>
-                    <li>• Avoid: Friday 1:00 PM (only 15% availability)</li>
-                    <li>• EV charging bays are typically 40% less busy on weekends</li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Notifications */}
         <TabsContent value="notifications">

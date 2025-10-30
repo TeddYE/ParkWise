@@ -240,3 +240,59 @@ export interface FavoritesResponse {
 }
 
 export type SubscriptionPlan = "monthly" | "annual";
+
+// Prediction Types
+export interface PredictionRequest {
+  carpark_number: string;
+  datetime: string; // ISO 8601 format
+}
+
+export interface PredictionApiResponse {
+  carpark_number: string;
+  predictions: Array<{
+    datetime: string;
+    predicted_lots_available: number;
+  }>;
+}
+
+export interface EnhancedPrediction {
+  datetime: string;
+  predicted_lots_available: number;
+  availability_percentage: number;
+  status: 'excellent' | 'good' | 'limited' | 'very_limited';
+  is_optimal_time: boolean;
+  is_peak_time: boolean;
+  confidence_level: 'high' | 'medium' | 'low';
+}
+
+export interface PredictionAnalysis {
+  best_times: Array<{
+    time: string;
+    availability: number;
+    reason: string;
+  }>;
+  worst_times: Array<{
+    time: string;
+    availability: number;
+    reason: string;
+  }>;
+  insights: string[];
+  overall_trend: 'improving' | 'declining' | 'stable';
+}
+
+export interface PredictionResponse {
+  carpark_number: string;
+  predictions: EnhancedPrediction[];
+  analysis: PredictionAnalysis;
+  metadata: {
+    generated_at: string;
+    expires_at: string;
+    total_lots?: number;
+  };
+}
+
+export interface PredictionServiceResponse {
+  data?: PredictionResponse;
+  error?: string;
+  cached?: boolean;
+}

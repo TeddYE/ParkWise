@@ -6,17 +6,21 @@ import {
   DollarSign, 
   MapPin, 
   Star,
-  Heart
+  Heart,
+  BarChart3
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Separator } from './ui/separator';
+import { PredictionChart } from './ui/PredictionChart';
+import { PredictionInsights } from './ui/PredictionInsights';
 import { Carpark, User } from '../types';
 import { toast } from "sonner";
 import { AuthService } from '../services/authService';
 import { getCarparkDisplayName } from '../utils/carpark';
-import { memo, useCallback, useMemo } from 'react';
+import { usePredictions } from '../hooks/usePredictions';
+import { calculateDistance } from '../utils/distance';
+import { memo, useCallback, useMemo, useEffect, useState } from 'react';
 
 
 interface CarparkDetailsProps {
@@ -29,6 +33,67 @@ interface CarparkDetailsProps {
 }
 
 export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, onViewChange, isPremium, user, onUpdateUser }: CarparkDetailsProps) {
+  // State for user location and calculated values
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [calculatedDistance, setCalculatedDistance] = useState<number | undefined>(carpark.distance);
+  const [calculatedDrivingTime, setCalculatedDrivingTime] = useState<number | undefined>(carpark.drivingTime);
+
+  // Prediction hook
+  const predictions = usePredictions({
+    retryAttempts: 2,
+    retryDelay: 1000,
+    staleThreshold: 30, // 30 minutes
+  });
+
+  // Get user location on component mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setUserLocation(location);
+        },
+        (error) => {
+          console.warn('Could not get user location:', error);
+          // Use default Singapore location as fallback
+          setUserLocation({ lat: 1.3521, lng: 103.8198 });
+        },
+        { timeout: 10000, enableHighAccuracy: false }
+      );
+    } else {
+      // Use default Singapore location as fallback
+      setUserLocation({ lat: 1.3521, lng: 103.8198 });
+    }
+  }, []);
+
+  // Calculate distance and driving time when user location is available
+  useEffect(() => {
+    if (userLocation) {
+      const distance = calculateDistance(
+        userLocation.lat,
+        userLocation.lng,
+        carpark.coordinates.lat,
+        carpark.coordinates.lng
+      );
+      
+      // Estimate driving time (assuming average speed of 30 km/h in Singapore)
+      const estimatedDrivingTime = Math.round((distance / 30) * 60); // Convert to minutes
+      
+      setCalculatedDistance(distance);
+      setCalculatedDrivingTime(estimatedDrivingTime);
+    }
+  }, [userLocation, carpark.coordinates]);
+
+  // Auto-load predictions for premium users
+  useEffect(() => {
+    if (isPremium && (!predictions.data || predictions.data.carpark_number !== carpark.id)) {
+      predictions.fetchPredictions(carpark.id, carpark.totalLots ?? undefined);
+    }
+  }, [isPremium, carpark.id, carpark.totalLots, predictions]);
+
   // Memoize expensive calculations
   const availabilityStatus = useMemo(() => {
     const getAvailabilityStatus = (available: number, total: number | null) => {
@@ -96,9 +161,11 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
     onViewChange(action);
   }, [onViewChange]);
 
+
+
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-4xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-3 flex-1">
@@ -125,9 +192,9 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid gap-6 ${isPremium ? 'grid-cols-1 xl:grid-cols-5' : 'grid-cols-1 lg:grid-cols-3'}`}>
         {/* Main Info */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className={isPremium ? 'xl:col-span-3 space-y-4' : 'lg:col-span-2 space-y-4'}>
           {/* Availability */}
           <Card>
             <CardHeader>
@@ -188,7 +255,7 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
                   </h4>
                   <Button 
                     size="sm" 
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => handlePremiumAction('premium')}
                   >
                     Calculate Total Cost
@@ -258,85 +325,127 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
           </Card>
         </div>
 
-        {/* Actions Sidebar */}
-        <div className="space-y-4">
-          {/* Navigation */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Navigation className="w-5 h-5" />
-                Navigate
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button 
-                className="w-full" 
-                onClick={handleOpenMaps}
-              >
-                <MapPin className="w-4 h-4 mr-2" />
-                Open in Maps
-              </Button>
-              <div className="text-sm text-muted-foreground text-center">
-                <Clock className="w-3 h-3 inline mr-1" />
-                {carpark.drivingTime !== undefined ? `${carpark.drivingTime} min drive` : '- min drive'} • {carpark.distance !== undefined ? `${carpark.distance}km` : '-'} away
-              </div>
-            </CardContent>
-          </Card>
+        {/* Right Sidebar - Predictions for Premium, Actions for Free */}
+        <div className={`space-y-4 ${isPremium ? 'xl:col-span-2' : ''}`}>
+          {isPremium ? (
+            /* Premium: Show Predictions */
+            <>
+              {/* Navigation - Compact */}
+              <Card>
+                <CardContent className="p-4">
+                  <Button 
+                    className="w-full" 
+                    onClick={handleOpenMaps}
+                  >
+                    <MapPin className="w-4 h-4 mr-2" />
+                    Open in Maps
+                  </Button>
+                  <div className="text-sm text-muted-foreground text-center mt-2">
+                    <Clock className="w-3 h-3 inline mr-1" />
+                    {calculatedDrivingTime !== undefined ? `${calculatedDrivingTime} min drive` : '- min drive'} • {calculatedDistance !== undefined ? `${calculatedDistance.toFixed(1)}km` : '-'} away
+                  </div>
+                </CardContent>
+              </Card>
 
+              {/* 24-Hour Predictions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    24-Hour Forecast
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <PredictionChart
+                    predictions={predictions.data?.predictions || []}
+                    carparkName={displayName}
+                    totalLots={carpark.totalLots ?? undefined}
+                    loading={predictions.loading}
+                    error={predictions.error ?? undefined}
+                    onRetry={predictions.retry}
+                    showInsights={true}
+                    chartType="bar"
+                  />
+                  
+                  {predictions.data && predictions.data.predictions.length > 0 && (
+                    <div className="mt-4">
+                      <PredictionInsights
+                        predictions={predictions.data.predictions}
+                        carparkInfo={{
+                          name: displayName,
+                          totalLots: carpark.totalLots ?? 0,
+                        }}
+                        analysis={predictions.data.analysis}
+                      />
+                    </div>
+                  )}
 
+                  {/* Premium Actions - Compact */}
+                  <div className="mt-4 space-y-2">
+                    <Button 
+                      size="sm" 
+                      variant="secondary" 
+                      className="w-full"
+                    >
+                      Join Waitlist
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="secondary" 
+                      className="w-full"
+                    >
+                      Set Availability Alert
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            /* Free Users: Original Actions Sidebar */
+            <>
+              {/* Navigation */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Navigation className="w-5 h-5" />
+                    Navigate
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button 
+                    className="w-full" 
+                    onClick={handleOpenMaps}
+                  >
+                    <MapPin className="w-4 h-4 mr-2" />
+                    Open in Maps
+                  </Button>
+                  <div className="text-sm text-muted-foreground text-center">
+                    <Clock className="w-3 h-3 inline mr-1" />
+                    {calculatedDrivingTime !== undefined ? `${calculatedDrivingTime} min drive` : '- min drive'} • {calculatedDistance !== undefined ? `${calculatedDistance.toFixed(1)}km` : '-'} away
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Premium Features */}
-          {!isPremium && (
-            <Card className="border-yellow-200 bg-yellow-50">
-              <CardContent className="p-4">
-                <h4 className="mb-2">🚀 Premium Features</h4>
-                <ul className="text-sm space-y-1 text-muted-foreground mb-3">
-                  <li>• Historical availability patterns</li>
-                  <li>• Cost calculator</li>
-                  <li>• Waitlist notifications</li>
-                  <li>• Smart recommendations</li>
-                </ul>
-                <Button 
-                  size="sm" 
-                  className="w-full"
-                  onClick={() => handlePremiumAction('pricing')}
-                >
-                  Upgrade to Premium
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {isPremium && (
-            <Card className="border-green-200 bg-green-50">
-              <CardContent className="p-4">
-                <h4 className="mb-2">⭐ Premium Actions</h4>
-                <div className="space-y-2">
+              {/* Premium Features Upsell */}
+              <Card className="border-yellow-200 bg-yellow-50">
+                <CardContent className="p-4">
+                  <h4 className="mb-2">🚀 Premium Features</h4>
+                  <ul className="text-sm space-y-1 text-muted-foreground mb-3">
+                    <li>• 24-Hour availability forecast</li>
+                    <li>• Cost calculator</li>
+                    <li>• Waitlist notifications</li>
+                    <li>• Smart recommendations</li>
+                  </ul>
                   <Button 
                     size="sm" 
-                    variant="outline" 
                     className="w-full"
-                    onClick={() => handlePremiumAction('premium')}
+                    onClick={() => handlePremiumAction('pricing')}
                   >
-                    View Historical Data
+                    Upgrade to Premium
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="w-full"
-                  >
-                    Join Waitlist
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="w-full"
-                  >
-                    Set Availability Alert
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </>
           )}
         </div>
       </div>

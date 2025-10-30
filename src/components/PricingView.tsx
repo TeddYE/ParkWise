@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Crown, MapPin, Zap, Calculator, TrendingUp, Bell, Star, DollarSign } from 'lucide-react';
+import { Check, Crown, MapPin, Zap, Calculator, Bell, Star, DollarSign } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -39,7 +39,6 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
     'All free features',
     'Smart carpark recommender',
     'Parking cost calculator',
-    'Historical availability data',
     'Availability notifications',
     'Waitlist for full carparks',
     'Ad-free experience',
@@ -196,7 +195,6 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
                     { feature: 'EV charging information', free: true, premium: true, icon: Zap },
                     { feature: 'Smart recommender system', free: false, premium: true, icon: Star },
                     { feature: 'Cost calculator', free: false, premium: true, icon: Calculator },
-                    { feature: 'Historical data & insights', free: false, premium: true, icon: TrendingUp },
                     { feature: 'Availability alerts', free: false, premium: true, icon: Bell },
                     { feature: 'Ad-free experience', free: false, premium: true, icon: Crown },
                   ].map((item, index) => (

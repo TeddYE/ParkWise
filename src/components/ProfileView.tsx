@@ -276,10 +276,7 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
                     <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
                     Parking cost calculator
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
-                    Historical availability data
-                  </div>
+
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
                     Availability notifications

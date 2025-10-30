@@ -137,6 +137,12 @@ export class CacheManager {
     return value !== null;
   }
 
+  async delete(namespace: string, key: string): Promise<boolean> {
+    const cache = this.caches.get(namespace);
+    if (!cache) return false;
+    return cache.delete(key);
+  }
+
   private cleanup(): void {
     for (const cache of this.caches.values()) {
       cache.cleanup();

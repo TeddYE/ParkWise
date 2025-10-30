@@ -381,7 +381,6 @@ export function PaymentView({ onViewChange, onPaymentSuccess, user, planType }: 
                   {[
                     'Smart carpark recommender',
                     'Parking cost calculator',
-                    'Historical availability data',
                     'Availability notifications',
                     'Waitlist for full carparks',
                     'Ad-free experience',
