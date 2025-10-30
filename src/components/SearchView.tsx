@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, MapPin, Car, Zap, Clock, DollarSign, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, MapPin, Car, Zap, Clock, DollarSign, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -7,7 +7,7 @@ import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
 import { Slider } from './ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Carpark } from '../types';
+import { Carpark, User } from '../types';
 import { useCarparks } from '../hooks/useCarparks';
 import { isPostalCode } from '../utils/postalCode';
 import { geocodePostalCode, GeocodingResult } from '../services/geocodingService';
@@ -20,9 +20,10 @@ interface SearchViewProps {
   onSelectCarpark: (carpark: Carpark) => void;
   onViewChange: (view: string) => void;
   isPremium: boolean;
+  user?: User;
 }
 
-export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchViewProps) {
+export function SearchView({ onSelectCarpark, onViewChange, isPremium, user }: SearchViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [maxDistance, setMaxDistance] = useState([5]);
   const [maxPrice, setMaxPrice] = useState([10]);
@@ -30,6 +31,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('distance');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [geocodingLoading, setGeocodingLoading] = useState(false);
   const [geocodedLocation, setGeocodedLocation] = useState<GeocodingResult | null>(null);
   const [geocodingError, setGeocodingError] = useState<string>('');
@@ -95,6 +97,11 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
   const filteredCarparks = useMemo(() => {
     return carparksWithDistance
       .filter(carpark => {
+        // Favorites filter
+        if (showFavoritesOnly && user?.favoriteCarparks) {
+          if (!user.favoriteCarparks.includes(carpark.id)) return false;
+        }
+        
         if (debouncedSearchQuery && !geocodedLocation) {
           // Regular text search (not postal code)
           const nameMatch = carpark.name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) || false;
@@ -126,7 +133,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
             return a.distance - b.distance;
         }
       });
-  }, [carparksWithDistance, debouncedSearchQuery, geocodedLocation, maxDistance, maxPrice, isPremium, requireEV, selectedTypes, sortBy]);
+  }, [carparksWithDistance, debouncedSearchQuery, geocodedLocation, maxDistance, maxPrice, isPremium, requireEV, selectedTypes, sortBy, showFavoritesOnly, user?.favoriteCarparks]);
 
   // Memoize utility functions
   const getAvailabilityColor = useCallback((available: number, total: number | null) => {
@@ -146,6 +153,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
     setMaxPrice([15]);
     setRequireEV(false);
     setSelectedTypes([]);
+    setShowFavoritesOnly(false);
   }, []);
 
   const handlePremiumUpgrade = useCallback(() => {
@@ -155,7 +163,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchQuery, maxDistance, maxPrice, requireEV, selectedTypes, sortBy, geocodedLocation]);
+  }, [debouncedSearchQuery, maxDistance, maxPrice, requireEV, selectedTypes, sortBy, geocodedLocation, showFavoritesOnly]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredCarparks.length / itemsPerPage);
@@ -205,15 +213,27 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
               </div>
             )}
           </div>
-          <Button 
-            variant="outline"
-            onClick={handleToggleAdvanced}
-            className="flex items-center gap-2 justify-center sm:justify-start"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            <span className="hidden sm:inline">Filters</span>
-            <span className="sm:hidden">Filters</span>
-          </Button>
+          <div className="flex gap-2">
+            {isPremium && user?.favoriteCarparks && user.favoriteCarparks.length > 0 && (
+              <Button 
+                variant={showFavoritesOnly ? "default" : "outline"}
+                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                className="flex items-center gap-2"
+              >
+                <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-current' : ''}`} />
+                <span className="hidden sm:inline">Favorites</span>
+              </Button>
+            )}
+            <Button 
+              variant="outline"
+              onClick={handleToggleAdvanced}
+              className="flex items-center gap-2 justify-center sm:justify-start"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span className="hidden sm:inline">Filters</span>
+              <span className="sm:hidden">Filters</span>
+            </Button>
+          </div>
         </div>
 
         {/* Geocoding Status */}
@@ -342,6 +362,23 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
                     <label htmlFor="ev" className="text-sm">EV Charging Available</label>
                   </div>
                 </div>
+
+                {/* Favorites Filter - Premium Only */}
+                {isPremium && user?.favoriteCarparks && user.favoriteCarparks.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-sm block">Show Favorites</label>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="favorites" 
+                        checked={showFavoritesOnly}
+                        onCheckedChange={(checked) => setShowFavoritesOnly(!!checked)}
+                      />
+                      <label htmlFor="favorites" className="text-sm">
+                        Show only my favorites ({user.favoriteCarparks.length})
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

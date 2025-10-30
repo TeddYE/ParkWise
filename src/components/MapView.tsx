@@ -97,6 +97,7 @@ export function MapView({
   const [selectedLotTypes, setSelectedLotTypes] = useState<string[]>([]);
   const [selectedCarparkTypes, setSelectedCarparkTypes] = useState<string[]>([]);
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   // Fetch carparks from the API
   const { carparks: apiCarparks, loading: isLoadingCarparks, refetch: refetchCarparks } =
@@ -373,6 +374,7 @@ export function MapView({
     setSelectedCarparkTypes([]);
     setSelectedPaymentMethods([]);
     setSearchRadius([5]);
+    setShowFavoritesOnly(false);
   };
 
   // Filter carparks by search query or map bounds
@@ -438,6 +440,13 @@ export function MapView({
         carpark.paymentMethods.some(method =>
           selectedPaymentMethods.includes(method)
         )
+      );
+    }
+
+    // Apply favorites filter
+    if (showFavoritesOnly && user?.favoriteCarparks) {
+      filtered = filtered.filter((carpark) =>
+        user.favoriteCarparks!.includes(carpark.id)
       );
     }
 
@@ -652,6 +661,16 @@ export function MapView({
                 <Search className="w-4 h-4" />
               )}
             </Button>
+            {isPremium && user?.favoriteCarparks && user.favoriteCarparks.length > 0 && (
+              <Button
+                size="icon"
+                variant={showFavoritesOnly ? "default" : "outline"}
+                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                className="relative"
+              >
+                <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-current' : ''}`} />
+              </Button>
+            )}
             <Button
               size="icon"
               variant="outline"
@@ -659,7 +678,7 @@ export function MapView({
               className="relative"
             >
               <Filter className="w-4 h-4" />
-              {(selectedLotTypes.length > 0 || selectedCarparkTypes.length > 0 || selectedPaymentMethods.length > 0) && (
+              {(selectedLotTypes.length > 0 || selectedCarparkTypes.length > 0 || selectedPaymentMethods.length > 0 || showFavoritesOnly) && (
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-background" />
               )}
             </Button>

@@ -154,6 +154,7 @@ function AppContent() {
             onSelectCarpark={handleSelectCarpark}
             onViewChange={handleViewChange}
             isPremium={isPremium}
+            user={user || undefined}
           />
         )}
 
@@ -211,6 +212,7 @@ function AppContent() {
             onViewChange={handleViewChange}
             onUpdateUser={updateUser}
             onSelectCarpark={handleSelectCarpark}
+            isPremium={isPremium}
           />
         )}
       </main>

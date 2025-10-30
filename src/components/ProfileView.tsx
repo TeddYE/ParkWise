@@ -20,9 +20,10 @@ interface ProfileViewProps {
   onViewChange: (view: ViewType) => void;
   onUpdateUser: (user: UserType) => void;
   onSelectCarpark: (carpark: Carpark) => void;
+  isPremium: boolean;
 }
 
-export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark }: ProfileViewProps) {
+export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark, isPremium }: ProfileViewProps) {
   const { carparks, loading } = useCarparks();
   const [favoriteCarparks, setFavoriteCarparks] = useState<Carpark[]>([]);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -138,8 +139,6 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
       day: 'numeric',
     });
   };
-
-  const isPremium = user.subscription === 'premium';
 
   return (
     <div className="h-full overflow-auto bg-gradient-to-br from-muted/30 via-background to-muted/20">
@@ -296,19 +295,39 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
         </CardContent>
       </Card>
 
-      {/* Favorite Carparks */}
+      {/* Favorite Carparks - Premium Only */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Heart className="w-5 h-5" />
             Favorite Carparks
-            {favoriteCarparks.length > 0 && (
+            {!isPremium && (
+              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                <Crown className="w-3 h-3 mr-1" />
+                Premium
+              </Badge>
+            )}
+            {isPremium && favoriteCarparks.length > 0 && (
               <Badge variant="secondary">{favoriteCarparks.length}</Badge>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {!isPremium ? (
+            <div className="text-center py-12 px-4">
+              <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Crown className="w-8 h-8 text-yellow-600" />
+              </div>
+              <h3 className="mb-2">Premium Feature</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+                Save your favorite carparks for quick access. Upgrade to Premium to unlock this feature.
+              </p>
+              <Button onClick={() => onViewChange('pricing')}>
+                <Crown className="w-4 h-4 mr-2" />
+                Upgrade to Premium
+              </Button>
+            </div>
+          ) : loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
               <p className="text-muted-foreground">Loading favorites...</p>

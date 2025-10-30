@@ -7,7 +7,8 @@ import {
   MapPin, 
   Star,
   Heart,
-  BarChart3
+  BarChart3,
+  Crown
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -138,6 +139,12 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
       return;
     }
     
+    if (!isPremium) {
+      toast.error('Upgrade to Premium to save favorites');
+      onViewChange('pricing');
+      return;
+    }
+    
     const currentFavorites = user.favoriteCarparks || [];
     const updatedFavorites = isFavorite
       ? currentFavorites.filter(id => id !== carpark.id)
@@ -224,14 +231,19 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          <Button
-            variant={isFavorite ? 'default' : 'outline'}
-            size="icon"
-            onClick={handleToggleFavorite}
-            className={isFavorite ? 'bg-red-500 hover:bg-red-600' : ''}
-          >
-            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-          </Button>
+          <div className="relative">
+            <Button
+              variant={isFavorite ? 'default' : 'outline'}
+              size="icon"
+              onClick={handleToggleFavorite}
+              className={isFavorite ? 'bg-red-500 hover:bg-red-600' : ''}
+            >
+              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+            </Button>
+            {!isPremium && !isFavorite && (
+              <Crown className="w-3 h-3 absolute -top-1 -right-1 text-yellow-600 bg-background rounded-full p-0.5" />
+            )}
+          </div>
           <Badge className={availabilityStatus.color}>
             {availabilityStatus.text}
           </Badge>
@@ -476,23 +488,7 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
                     </div>
                   )}
 
-                  {/* Premium Actions - Compact */}
-                  <div className="mt-4 space-y-2">
-                    <Button 
-                      size="sm" 
-                      variant="secondary" 
-                      className="w-full"
-                    >
-                      Join Waitlist
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="secondary" 
-                      className="w-full"
-                    >
-                      Set Availability Alert
-                    </Button>
-                  </div>
+
                 </CardContent>
               </Card>
             </>
