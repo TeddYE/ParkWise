@@ -12,6 +12,7 @@ import {
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
+import { Slider } from './ui/slider';
 import { PredictionChart } from './ui/PredictionChart';
 import { PredictionInsights } from './ui/PredictionInsights';
 import { Carpark, User } from '../types';
@@ -40,6 +41,10 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
 
   // Ref to track last fetched carpark to prevent infinite loops
   const lastFetchedCarparkRef = useRef<string | null>(null);
+
+  // Calculator state
+  const [calculatorHours, setCalculatorHours] = useState<number>(1);
+  const [calculatedCost, setCalculatedCost] = useState<number | null>(null);
 
   // Prediction hook
   const predictions = usePredictions({
@@ -164,9 +169,37 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
     window.open(mapsUrl, '_blank');
   }, [carpark.coordinates.lat, carpark.coordinates.lng]);
 
-  const handlePremiumAction = useCallback((action: string) => {
-    onViewChange(action);
-  }, [onViewChange]);
+  const calculateParkingCost = useCallback((hours: number) => {
+    // carpark.rates.hourly is the actual per-hour rate
+    const hourlyRate = carpark.rates.hourly;
+    const dailyCap = carpark.rates.daily;
+    
+    // Calculate cost based on hours
+    const totalCost = hours * hourlyRate;
+    
+    // Apply daily cap if cost exceeds it
+    const finalCost = Math.min(totalCost, dailyCap);
+    
+    return finalCost;
+  }, [carpark.rates]);
+
+  const handleCalculatorChange = useCallback((value: number[]) => {
+    const hours = value[0];
+    setCalculatorHours(hours);
+    
+    if (hours > 0) {
+      const cost = calculateParkingCost(hours);
+      setCalculatedCost(cost);
+    } else {
+      setCalculatedCost(null);
+    }
+  }, [calculateParkingCost]);
+
+  // Initialize calculator with default value
+  useEffect(() => {
+    const cost = calculateParkingCost(1);
+    setCalculatedCost(cost);
+  }, [calculateParkingCost]);
 
 
 
@@ -239,36 +272,61 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
             <CardContent>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span>Per 30 Minutes</span>
+                  <span>Per Hour</span>
                   <span>S${carpark.rates.hourly.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Daily Cap</span>
                   <span>S${carpark.rates.daily.toFixed(2)}</span>
                 </div>
-                {carpark.evLots > 0 && (
-                  <div className="flex justify-between">
-                    <span>EV Charging (per kWh)</span>
-                    <span>S${carpark.rates.evCharging.toFixed(2)}</span>
-                  </div>
-                )}
+
               </div>
               
-              {isPremium && (
-                <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
-                  <h4 className="flex items-center gap-2 mb-2">
-                    <Star className="w-4 h-4 text-yellow-600" />
-                    Premium Calculator
-                  </h4>
-                  <Button 
-                    size="sm" 
-                    variant="secondary"
-                    onClick={() => handlePremiumAction('premium')}
-                  >
-                    Calculate Total Cost
-                  </Button>
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                <h4 className="flex items-center gap-2 mb-3">
+                  <Star className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  Cost Calculator
+                </h4>
+                
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Duration</span>
+                      <span className="text-sm font-medium">{calculatorHours} {calculatorHours === 1 ? 'hour' : 'hours'}</span>
+                    </div>
+                    <Slider
+                      value={[calculatorHours]}
+                      onValueChange={handleCalculatorChange}
+                      max={24}
+                      min={0.5}
+                      step={0.5}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>30 min</span>
+                      <span>24 hours</span>
+                    </div>
+                  </div>
+                  
+                  {calculatedCost !== null && (
+                    <div className="p-2 bg-background rounded border">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Total Cost:</span>
+                        <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                          S${calculatedCost.toFixed(2)}
+                        </span>
+                      </div>
+                      {calculatedCost >= carpark.rates.daily && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Daily cap applied
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
 
@@ -459,19 +517,19 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
               </Card>
 
               {/* Premium Features Upsell */}
-              <Card className="border-yellow-200 bg-yellow-50">
+              <Card className="border-yellow-200 dark:border-yellow-800/30 bg-yellow-50 dark:bg-yellow-950/30">
                 <CardContent className="p-4">
-                  <h4 className="mb-2">🚀 Premium Features</h4>
+                  <h4 className="mb-2">Unlock Premium</h4>
                   <ul className="text-sm space-y-1 text-muted-foreground mb-3">
-                    <li>• 24-Hour availability forecast</li>
-                    <li>• Cost calculator</li>
-                    <li>• Waitlist notifications</li>
-                    <li>• Smart recommendations</li>
+                    <li>• Ad-free experience</li>
+                    <li>• 24-hour availability forecasts</li>
+                    <li>• Smart parking insights</li>
+                    <li>• Advanced filtering options</li>
                   </ul>
                   <Button 
                     size="sm" 
                     className="w-full"
-                    onClick={() => handlePremiumAction('pricing')}
+                    onClick={() => onViewChange('pricing')}
                   >
                     Upgrade to Premium
                   </Button>

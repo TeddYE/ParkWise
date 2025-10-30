@@ -86,17 +86,7 @@ export const Header = memo(function Header({ currentView, onViewChange, onBackTo
           Search
         </Button>
 
-        {isPremium && (
-          <Button
-            variant={currentView === 'premium' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => onViewChange('premium')}
-            className="flex items-center gap-2"
-          >
-            <Crown className="w-4 h-4" />
-            Premium
-          </Button>
-        )}
+
 
         {/* Plans Tab - Always visible */}
         <Button
@@ -215,16 +205,7 @@ export const Header = memo(function Header({ currentView, onViewChange, onBackTo
                 Search
               </Button>
 
-              {isPremium && (
-                <Button
-                  variant={currentView === 'premium' ? 'default' : 'ghost'}
-                  onClick={() => handleNavigation('premium')}
-                  className="w-full justify-start"
-                >
-                  <Crown className="w-4 h-4 mr-2" />
-                  Premium
-                </Button>
-              )}
+
 
               <Button
                 variant={currentView === 'pricing' ? 'default' : 'ghost'}

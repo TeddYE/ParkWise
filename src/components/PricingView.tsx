@@ -29,37 +29,37 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
   const freeFeatures = [
     'Live carpark availability',
     'EV charging bay information', 
-    'Map view with nearby carparks',
+    'Interactive map with nearby carparks',
     'Basic search and filtering',
-
+    'Cost calculator',
     'Carpark details and rates'
   ];
 
   const premiumFeatures = [
-    'All free features',
-    'Smart carpark recommender',
-    'Parking cost calculator',
-    'Availability notifications',
-    'Waitlist for full carparks',
-    'Ad-free experience',
-    'Priority customer support'
+    'Everything in Free Plan',
+    '24-hour availability forecasts',
+    'Smart parking insights',
+    'Advanced filtering options',
+    'Ad-free experience'
   ];
 
-  const monthlyPrice = 3.99;
-  const annualPrice = 39.99;
+  const monthlyPrice = 0.99;
+  const annualPrice = 9.99;
   const annualSavings = (monthlyPrice * 12) - annualPrice;
-  const gstRate = 0.09; // 9% GST
-  const monthlyPriceWithGST = monthlyPrice * (1 + gstRate);
-  const annualPriceWithGST = annualPrice * (1 + gstRate);
+  // Prices already include GST
+  const monthlyPriceWithGST = monthlyPrice;
+  const annualPriceWithGST = annualPrice;
   const annualSavingsWithGST = (monthlyPriceWithGST * 12) - annualPriceWithGST;
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto p-3 sm:p-4">
       <div className="text-center mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl mb-3 sm:mb-4">Choose Your Plan</h1>
+        <h1 className="text-2xl sm:text-3xl mb-3 sm:mb-4">Supercharge Your Parking Experience</h1>
         <p className="text-muted-foreground mb-4 sm:mb-6 text-sm sm:text-base">
-          Find parking smarter with ParkWise. Support Singapore's Green Plan 2030.
+          Join thousands of smart drivers saving time and money every day. 
+          <br className="hidden sm:block" />
+          Revolutionary parking intelligence for Singapore's future.
         </p>
         
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6 sm:mb-8">
@@ -85,7 +85,7 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
               Free Plan
             </CardTitle>
             <div className="text-3xl">S$0<span className="text-base text-muted-foreground">/month</span></div>
-            <p className="text-muted-foreground">Perfect for occasional parking needs</p>
+            <p className="text-muted-foreground">Perfect for occasional drivers</p>
           </CardHeader>
           <CardContent>
             <ul className="space-y-3 mb-6">
@@ -97,7 +97,7 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
               ))}
             </ul>
             <div className="text-xs text-muted-foreground mb-4">
-              ⚠️ Includes advertisements
+              Includes advertisements
             </div>
             <Button 
               variant="outline" 
@@ -132,15 +132,15 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
             </div>
             {isAnnual && (
               <div className="text-sm text-muted-foreground">
-                Billed annually at S${annualPriceWithGST.toFixed(2)} (incl. 9% GST)
+                Billed annually at S${annualPriceWithGST.toFixed(2)} (GST included)
               </div>
             )}
             {!isAnnual && (
               <div className="text-sm text-muted-foreground">
-                Includes 9% GST
+                GST included
               </div>
             )}
-            <p className="text-muted-foreground">For frequent drivers and parking optimization</p>
+            <p className="text-muted-foreground">For drivers who demand the ultimate parking experience</p>
           </CardHeader>
           <CardContent>
             <ul className="space-y-3 mb-6">
@@ -193,9 +193,11 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
                   {[
                     { feature: 'Live carpark availability', free: true, premium: true, icon: MapPin },
                     { feature: 'EV charging information', free: true, premium: true, icon: Zap },
-                    { feature: 'Smart recommender system', free: false, premium: true, icon: Star },
-                    { feature: 'Cost calculator', free: false, premium: true, icon: Calculator },
-                    { feature: 'Availability alerts', free: false, premium: true, icon: Bell },
+                    { feature: 'Cost calculator', free: true, premium: true, icon: Calculator },
+                    { feature: 'Basic search & filtering', free: true, premium: true, icon: Bell },
+                    { feature: '24-hour forecasts', free: false, premium: true, icon: Star },
+                    { feature: 'Smart parking insights', free: false, premium: true, icon: Bell },
+                    { feature: 'Advanced filtering', free: false, premium: true, icon: Bell },
                     { feature: 'Ad-free experience', free: false, premium: true, icon: Crown },
                   ].map((item, index) => (
                     <tr key={index} className="border-b last:border-b-0">
@@ -235,7 +237,7 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
             </div>
             <h3 className="mb-2">Save Time</h3>
             <p className="text-sm text-muted-foreground">
-              Find parking 3x faster with smart recommendations
+              Find parking faster with real-time availability data
             </p>
           </CardContent>
         </Card>
@@ -247,7 +249,7 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
             </div>
             <h3 className="mb-2">Save Money</h3>
             <p className="text-sm text-muted-foreground">
-              Calculate costs and find the best deals every time
+              Built-in cost calculator helps you find affordable parking
             </p>
           </CardContent>
         </Card>
@@ -259,7 +261,7 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
             </div>
             <h3 className="mb-2">Go Green</h3>
             <p className="text-sm text-muted-foreground">
-              Support Singapore's Green Plan with EV-friendly parking
+              Reduce emissions with optimized routes and EV charging integration
             </p>
           </CardContent>
         </Card>
@@ -269,9 +271,9 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
       {!isPremium && (
         <Card className="mt-8 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
           <CardContent className="p-6 text-center">
-            <h3 className="text-lg mb-2">🚀 Try Premium Features</h3>
+            <h3 className="text-lg mb-2">Ready to Transform Your Parking?</h3>
             <p className="text-muted-foreground mb-4">
-              Experience smart parking recommendations and cost savings
+              Join the parking revolution and never waste time searching again
             </p>
             <Button onClick={() => onViewChange('premium')}>
               Explore Premium Features

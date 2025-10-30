@@ -2,7 +2,7 @@ import { Header } from "./components/Header";
 import { MapView } from "./components/MapView";
 import { SearchView } from "./components/SearchView";
 import { CarparkDetails } from "./components/CarparkDetails";
-import { PremiumFeatures } from "./components/PremiumFeatures";
+
 import { PricingView } from "./components/PricingView";
 import { LoginView } from "./components/LoginView";
 import { SignupView } from "./components/SignupView";
@@ -168,12 +168,7 @@ function AppContent() {
           />
         )}
 
-        {currentView === "premium" && (
-          <PremiumFeatures
-            isPremium={isPremium}
-            onViewChange={handleViewChange}
-          />
-        )}
+
 
         {currentView === "pricing" && (
           <PricingView
