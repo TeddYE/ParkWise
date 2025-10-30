@@ -20,7 +20,7 @@ import { AuthService } from '../services/authService';
 import { getCarparkDisplayName } from '../utils/carpark';
 import { usePredictions } from '../hooks/usePredictions';
 import { calculateDistance } from '../utils/distance';
-import { memo, useCallback, useMemo, useEffect, useState } from 'react';
+import { memo, useCallback, useMemo, useEffect, useState, useRef } from 'react';
 
 
 interface CarparkDetailsProps {
@@ -37,6 +37,9 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [calculatedDistance, setCalculatedDistance] = useState<number | undefined>(carpark.distance);
   const [calculatedDrivingTime, setCalculatedDrivingTime] = useState<number | undefined>(carpark.drivingTime);
+
+  // Ref to track last fetched carpark to prevent infinite loops
+  const lastFetchedCarparkRef = useRef<string | null>(null);
 
   // Prediction hook
   const predictions = usePredictions({
@@ -89,10 +92,14 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
 
   // Auto-load predictions for premium users
   useEffect(() => {
-    if (isPremium && (!predictions.data || predictions.data.carpark_number !== carpark.id)) {
+    if (isPremium && lastFetchedCarparkRef.current !== carpark.id) {
+      lastFetchedCarparkRef.current = carpark.id;
       predictions.fetchPredictions(carpark.id, carpark.totalLots ?? undefined);
+    } else if (!isPremium) {
+      // Reset ref when user is not premium
+      lastFetchedCarparkRef.current = null;
     }
-  }, [isPremium, carpark.id, carpark.totalLots, predictions]);
+  }, [isPremium, carpark.id, carpark.totalLots, predictions.fetchPredictions]);
 
   // Memoize expensive calculations
   const availabilityStatus = useMemo(() => {
