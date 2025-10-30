@@ -1,6 +1,3 @@
-// API endpoint definitions
-const isDevelopment = import.meta.env.DEV;
-
 export const API_ENDPOINTS = {
   CARPARK_INFO: "https://dfxiu6qgx4.execute-api.ap-southeast-1.amazonaws.com/Test2",
   CARPARK_AVAILABILITY: "https://sy335w2e42.execute-api.ap-southeast-1.amazonaws.com/ava",
@@ -8,7 +5,5 @@ export const API_ENDPOINTS = {
   SIGNUP: "https://mb036g8g79.execute-api.ap-southeast-1.amazonaws.com/dev/signup",
   SUBSCRIBE: "https://mb036g8g79.execute-api.ap-southeast-1.amazonaws.com/dev/update",
   UPDATE_FAVORITES: "https://mb036g8g79.execute-api.ap-southeast-1.amazonaws.com/dev/update",
-  PREDICTIONS: isDevelopment
-    ? "/api/predictions"
-    : "https://i2yfzeh4b2.execute-api.ap-southeast-1.amazonaws.com/default/availability_predictor",
+  PREDICTIONS: "/api/predictions"
 } as const;
