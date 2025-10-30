@@ -43,8 +43,8 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
     'Ad-free experience'
   ];
 
-  const monthlyPrice = 0.99;
-  const annualPrice = 9.99;
+  const monthlyPrice = 1.99;
+  const annualPrice = 19.99;
   const annualSavings = (monthlyPrice * 12) - annualPrice;
   // Prices already include GST
   const monthlyPriceWithGST = monthlyPrice;
@@ -267,20 +267,7 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
         </Card>
       </div>
 
-      {/* Trial CTA */}
-      {!isPremium && (
-        <Card className="mt-8 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="p-6 text-center">
-            <h3 className="text-lg mb-2">Ready to Transform Your Parking?</h3>
-            <p className="text-muted-foreground mb-4">
-              Join the parking revolution and never waste time searching again
-            </p>
-            <Button onClick={() => onViewChange('premium')}>
-              Explore Premium Features
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+
       </div>
     </div>
   );

@@ -5,5 +5,5 @@ export const API_ENDPOINTS = {
   SIGNUP: "https://mb036g8g79.execute-api.ap-southeast-1.amazonaws.com/dev/signup",
   SUBSCRIBE: "https://mb036g8g79.execute-api.ap-southeast-1.amazonaws.com/dev/update",
   UPDATE_FAVORITES: "https://mb036g8g79.execute-api.ap-southeast-1.amazonaws.com/dev/update",
-  PREDICTIONS: "/api/predictions"
+  PREDICTIONS: "https://i2yfzeh4b2.execute-api.ap-southeast-1.amazonaws.com/default/availability_predictor"
 } as const;

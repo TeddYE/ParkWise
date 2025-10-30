@@ -122,7 +122,7 @@ class ApiClient {
   private async interceptRequest(url: string, config: RequestConfig): Promise<[string, RequestConfig]> {
     // If headers are explicitly set to empty object, respect that (like original carpark API)
     const useEmptyHeaders = config.headers && Object.keys(config.headers).length === 0;
-    
+
     const finalConfig: RequestConfig = {
       ...config,
       headers: useEmptyHeaders ? {} : {
@@ -160,12 +160,12 @@ class ApiClient {
       return await requestFn();
     } catch (error) {
       const apiError = ErrorHandler.handleApiError(error);
-      
+
       if (retries > 0 && ErrorHandler.shouldRetry(apiError)) {
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.withRetry(requestFn, retries - 1, delay * 2);
       }
-      
+
       throw apiError;
     }
   }
@@ -194,10 +194,28 @@ class ApiClient {
 
     const requestKey = `${config.method || 'GET'}:${url}:${JSON.stringify(config.body || {})}`;
 
+    // Log all API requests
+    console.log('🚀 API Request:', {
+      url,
+      method: config.method || 'GET',
+      body: config.body,
+      timestamp: new Date().toISOString()
+    });
+
     try {
       const result = await this.deduplicator.deduplicate(requestKey, async () => {
         const [finalUrl, finalConfig] = await this.interceptRequest(url, fetchConfig);
-        
+
+        // Debug log for prediction URL
+        if (url.includes('availability_predictor')) {
+          console.debug('🔮 PREDICTION URL CALLED:', {
+            fullUrl: url,
+            method: finalConfig.method || 'GET',
+            timestamp: new Date().toISOString(),
+            requestBody: finalConfig.body ? JSON.parse(finalConfig.body as string) : null
+          });
+        }
+
         return this.withRetry(async () => {
           const response = await this.withTimeout(
             fetch(finalUrl, finalConfig),
@@ -220,7 +238,7 @@ class ApiClient {
       const apiError = ErrorHandler.handleApiError(error);
 
       console.error('API request failed:', apiError);
-      
+
       return {
         data: {} as T,
         success: false,

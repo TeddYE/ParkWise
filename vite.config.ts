@@ -64,18 +64,7 @@ export default defineConfig({
   ], 
   base: "/ParkWise",
   server: {
-    proxy: {
-      '/api/predictions': {
-        target: 'https://i2yfzeh4b2.execute-api.ap-southeast-1.amazonaws.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/predictions/, '/default/availability_predictor'),
-        configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
-            console.log('Prediction API proxy error:', err);
-          });
-        },
-      },
-    },
+    // Proxy removed - using direct AWS URLs from endpoints.ts
   },
   resolve: {
     alias: {

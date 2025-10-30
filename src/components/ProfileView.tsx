@@ -379,62 +379,7 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark 
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              className="justify-start h-auto py-4"
-              onClick={() => onViewChange('map')}
-            >
-              <MapPin className="w-5 h-5 mr-3" />
-              <div className="text-left">
-                <div>Find Parking</div>
-                <div className="text-xs text-muted-foreground font-normal">Browse map view</div>
-              </div>
-            </Button>
-            <Button
-              variant="outline"
-              className="justify-start h-auto py-4"
-              onClick={() => onViewChange('search')}
-            >
-              <Navigation className="w-5 h-5 mr-3" />
-              <div className="text-left">
-                <div>Search Carparks</div>
-                <div className="text-xs text-muted-foreground font-normal">Find by location</div>
-              </div>
-            </Button>
-            <Button
-              variant="outline"
-              className="justify-start h-auto py-4"
-              onClick={() => onViewChange('pricing')}
-            >
-              <Crown className="w-5 h-5 mr-3" />
-              <div className="text-left">
-                <div>View Plans</div>
-                <div className="text-xs text-muted-foreground font-normal">Pricing & billing</div>
-              </div>
-            </Button>
-            {isPremium && (
-              <Button
-                variant="outline"
-                className="justify-start h-auto py-4"
-                onClick={() => onViewChange('premium')}
-              >
-                <Crown className="w-5 h-5 mr-3" />
-                <div className="text-left">
-                  <div>Premium Features</div>
-                  <div className="text-xs text-muted-foreground font-normal">Exclusive tools</div>
-                </div>
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+
       </div>
 
       {/* Edit Profile Dialog */}
