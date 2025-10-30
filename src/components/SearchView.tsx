@@ -14,6 +14,7 @@ import { geocodePostalCode, GeocodingResult } from '../services/geocodingService
 import { calculateDistance } from '../utils/distance';
 import { getCarparkDisplayName } from '../utils/carpark';
 import { useDebounce } from '../hooks/useDebounce';
+import { AdPlaceholder } from './ui/AdPlaceholder';
 
 interface SearchViewProps {
   onSelectCarpark: (carpark: Carpark) => void;
@@ -372,9 +373,14 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
 
       {/* Carpark List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {paginatedCarparks.map((carpark) => (
-          <Card 
-            key={carpark.id} 
+        {paginatedCarparks.map((carpark, index) => (
+          <div key={`search-${carpark.id}`}>
+            {/* Show ad every 6th item for free users */}
+            {!isPremium && index > 0 && index % 6 === 0 && (
+              <AdPlaceholder size="medium" className="mb-4 lg:col-span-2" />
+            )}
+            <Card
+ 
             className="cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => onSelectCarpark(carpark)}
           >
@@ -439,6 +445,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium }: SearchV
               </div>
             </CardContent>
           </Card>
+          </div>
         ))}
       </div>
 

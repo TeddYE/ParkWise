@@ -15,6 +15,7 @@ import { Badge } from './ui/badge';
 import { Slider } from './ui/slider';
 import { PredictionChart } from './ui/PredictionChart';
 import { PredictionInsights } from './ui/PredictionInsights';
+import { AdPlaceholder } from './ui/AdPlaceholder';
 import { Carpark, User } from '../types';
 import { toast } from "sonner";
 import { AuthService } from '../services/authService';
@@ -206,6 +207,11 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-7xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
+      {/* Ad Banner for Free Users */}
+      {!isPremium && (
+        <AdPlaceholder size="small" />
+      )}
+      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-3 flex-1">

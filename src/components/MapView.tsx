@@ -45,6 +45,7 @@ import { isPostalCode } from "../utils/postalCode";
 import { geocodePostalCode, geocodeSearch } from "../services/geocodingService";
 import { toast } from "sonner";
 import { AuthService } from "../services/authService";
+import { AdPlaceholder } from "./ui/AdPlaceholder";
 
 const MAX_MAP_CARPARKS = 30;
 const LOW_ZOOM_THRESHOLD = 13; // Below this = zoomed out, above = zoomed in
@@ -901,9 +902,14 @@ export function MapView({
           <div className="space-y-3">
             {carparksInBounds
               .slice(0, visibleCount)
-              .map((carpark) => (
-                <Card
-                  key={carpark.id}
+              .map((carpark, index) => (
+                <div key={`carpark-${carpark.id}`}>
+                  {/* Show ad every 4th item for free users */}
+                  {!isPremium && index > 0 && index % 4 === 0 && (
+                    <AdPlaceholder size="small" className="mb-3" />
+                  )}
+                  <Card
+
                   className={`cursor-pointer transition-all ${
                     selectedCarpark === carpark.id
                       ? "ring-2 ring-primary"
@@ -985,6 +991,7 @@ export function MapView({
                     </div>
                   </CardContent>
                 </Card>
+                </div>
               ))}
 
             {/* Loading indicator for infinite scroll */}
@@ -1043,6 +1050,16 @@ export function MapView({
 
       {/* Map Area - Fixed, non-scrollable */}
       <div className="flex-1 relative bg-gray-100 dark:bg-gray-900 overflow-hidden">
+        {/* Floating Ad Placeholder for Free Users */}
+        {!isPremium && (
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 hidden lg:block">
+            <AdPlaceholder 
+              size="large" 
+              className="w-48 h-96 shadow-lg"
+            />
+          </div>
+        )}
+        
         <LeafletMap
           carparks={carparksForMap}
           userLocation={userLocation}
