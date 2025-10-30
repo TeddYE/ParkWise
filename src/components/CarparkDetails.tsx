@@ -347,28 +347,31 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
                 </CardContent>
               </Card>
 
-              {/* 24-Hour Predictions */}
+              {/* Smart Insights */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BarChart3 className="w-5 h-5" />
-                    24-Hour Forecast
+                    Smart Insights
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <PredictionChart
-                    predictions={predictions.data?.predictions || []}
-                    carparkName={displayName}
-                    totalLots={carpark.totalLots ?? undefined}
-                    loading={predictions.loading}
-                    error={predictions.error ?? undefined}
-                    onRetry={predictions.retry}
-                    showInsights={true}
-                    chartType="bar"
-                  />
-                  
-                  {predictions.data && predictions.data.predictions.length > 0 && (
-                    <div className="mt-4">
+                  {predictions.data && predictions.data.predictions.length > 0 ? (
+                    <div className="space-y-4">
+                      {/* Compact Chart */}
+                      <PredictionChart
+                        predictions={predictions.data.predictions}
+                        carparkName={displayName}
+                        totalLots={carpark.totalLots ?? undefined}
+                        loading={predictions.loading}
+                        error={predictions.error ?? undefined}
+                        onRetry={predictions.retry}
+                        showInsights={false}
+                        chartType="bar"
+                        compact={true}
+                      />
+                      
+                      {/* Simplified Insights */}
                       <PredictionInsights
                         predictions={predictions.data.predictions}
                         carparkInfo={{
@@ -377,6 +380,28 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
                         }}
                         analysis={predictions.data.analysis}
                       />
+                    </div>
+                  ) : predictions.loading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                      <p className="ml-2 text-sm text-muted-foreground">Loading insights...</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <BarChart3 className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        {predictions.error ? 'Unable to load insights' : 'No insights available'}
+                      </p>
+                      {predictions.error && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={predictions.retry}
+                          className="mt-2"
+                        >
+                          Retry
+                        </Button>
+                      )}
                     </div>
                   )}
 
