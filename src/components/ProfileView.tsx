@@ -307,7 +307,7 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark,
                 Premium
               </Badge>
             )}
-            {isPremium && favoriteCarparks.length > 0 && (
+            {favoriteCarparks.length > 0 && (
               <Badge variant="secondary">{favoriteCarparks.length}</Badge>
             )}
           </CardTitle>
@@ -361,6 +361,9 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark,
                       {carpark.availableLots > 0 ? (
                         <Badge className="bg-green-100 text-green-800 border-green-200">
                           {carpark.availableLots} lots
+                          {carpark.lotDetails && carpark.lotDetails.length > 1 && (
+                            <span className="ml-1 text-xs">({carpark.lotDetails.length} types)</span>
+                          )}
                         </Badge>
                       ) : (
                         <Badge variant="destructive">Full</Badge>

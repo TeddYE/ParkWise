@@ -1,4 +1,4 @@
-import { Carpark, CarparkInfoApiResponse, CarparkAvailabilityApiResponse } from '@/types';
+import { Carpark, CarparkInfoApiResponse, CarparkAvailabilityApiResponse, LotInfo, CarparkLotDetails } from '@/types';
 
 /**
  * Coordinate transformation utilities
@@ -204,6 +204,9 @@ export class CarparkTransformer {
       // Determine carpark type from car_park_type
       const carparkType = this.determineCarparkType(apiData.car_park_type);
 
+      // Process lot details from new format (info API has total lots)
+      const lotDetails = this.parseLotDetails(apiData.lots, true);
+
       return {
         id: apiData.carpark_number,
         name: apiData.address || `Carpark ${apiData.carpark_number}`,
@@ -212,6 +215,7 @@ export class CarparkTransformer {
         longitude: lng,
         coordinates: { lat, lng },
         totalLots,
+        lotDetails,
         rates: {
           hourly: rate30min * 2, // Convert 30-min rate to hourly
           daily: dailyRate,
@@ -223,7 +227,8 @@ export class CarparkTransformer {
         paymentMethods,
         car_park_type: apiData.car_park_type || '',
         type_of_parking_system: apiData.type_of_parking_system || '',
-        lot_type: apiData.lot_type || '',
+        // Legacy field for backward compatibility
+        lot_type: apiData.lot_type || (lotDetails.length > 0 ? lotDetails[0].lot_type : ''),
       };
     } catch (error) {
       throw new Error(`Failed to transform carpark data for ${apiData.carpark_number}`);
@@ -236,18 +241,41 @@ export class CarparkTransformer {
   static transformAvailability(apiData: CarparkAvailabilityApiResponse): {
     carparkId: string;
     availableLots: number;
+    lotDetails: CarparkLotDetails[];
   } {
     try {
-      const availableLots = Number(apiData.lots_available) || 0;
+      let totalAvailable = 0;
+      const lotDetails: CarparkLotDetails[] = [];
+
+      // Handle new format with multiple lot types (availability API has available lots)
+      if (apiData.lots && Array.isArray(apiData.lots)) {
+        const availabilityLotDetails = this.parseLotDetails(apiData.lots, false);
+        availabilityLotDetails.forEach(lot => {
+          totalAvailable += lot.available_lots;
+          lotDetails.push(lot);
+        });
+      } 
+      // Handle legacy format for backward compatibility
+      else if (apiData.lots_available) {
+        const available = Number(apiData.lots_available) || 0;
+        totalAvailable = available;
+        
+        lotDetails.push({
+          lot_type: 'C', // Default to 'C' for legacy data
+          available_lots: available,
+        });
+      }
 
       return {
         carparkId: apiData.carpark_number,
-        availableLots,
+        availableLots: totalAvailable,
+        lotDetails,
       };
     } catch (error) {
       return {
         carparkId: apiData.carpark_number,
         availableLots: 0,
+        lotDetails: [],
       };
     }
   }
@@ -269,10 +297,13 @@ export class CarparkTransformer {
       });
 
       // Create availability map for quick lookup
-      const availabilityMap = new Map<string, number>();
+      const availabilityMap = new Map<string, { availableLots: number; lotDetails: CarparkLotDetails[] }>();
       availabilityRecords.forEach((record) => {
         const transformed = this.transformAvailability(record);
-        availabilityMap.set(transformed.carparkId, transformed.availableLots);
+        availabilityMap.set(transformed.carparkId, {
+          availableLots: transformed.availableLots,
+          lotDetails: transformed.lotDetails,
+        });
       });
 
       // Transform and combine data
@@ -282,11 +313,12 @@ export class CarparkTransformer {
       for (const info of uniqueInfoRecords) {
         try {
           const transformedInfo = this.transformCarparkInfo(info);
-          const availableLots = availabilityMap.get(info.carpark_number) || 0;
-
+          const availabilityData = availabilityMap.get(info.carpark_number);
+          
           const carpark: Carpark = {
             ...transformedInfo,
-            availableLots,
+            availableLots: availabilityData?.availableLots || 0,
+            lotDetails: this.mergeLotDetails(transformedInfo.lotDetails || [], availabilityData?.lotDetails || []),
             evLots: this.parseEvLots(info.ev_lot_location),
             availableEvLots: 0, // Would need separate API for real-time EV availability
           } as Carpark;
@@ -302,6 +334,74 @@ export class CarparkTransformer {
     } catch (error) {
       return [];
     }
+  }
+
+  /**
+   * Parse lot details from API lots array
+   * For CARPARK_INFO API: lots_available represents TOTAL lots
+   * For CARPARK_AVAILABILITY API: lots_available represents AVAILABLE lots
+   */
+  private static parseLotDetails(lots?: LotInfo[], isInfoApi: boolean = false): CarparkLotDetails[] {
+    if (!lots || !Array.isArray(lots)) {
+      return [];
+    }
+
+    // Only process C (Car), Y (Motorcycle), and H (Heavy Vehicle) lot types
+    return lots.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type)).map(lot => {
+      const lotsCount = Number(lot.lots_available) || 0;
+      
+      if (isInfoApi) {
+        // For info API, lots_available is actually the total capacity
+        return {
+          lot_type: lot.lot_type,
+          available_lots: 0, // Will be updated from availability API
+          total_lots: lotsCount,
+        };
+      } else {
+        // For availability API, lots_available is the current availability
+        return {
+          lot_type: lot.lot_type,
+          available_lots: lotsCount,
+        };
+      }
+    });
+  }
+
+  /**
+   * Merge lot details from info and availability data
+   * Info API provides total_lots, Availability API provides available_lots
+   */
+  private static mergeLotDetails(
+    infoLotDetails: CarparkLotDetails[],
+    availabilityLotDetails: CarparkLotDetails[]
+  ): CarparkLotDetails[] {
+    const mergedMap = new Map<string, CarparkLotDetails>();
+
+    // Start with info lot details (contains total_lots)
+    infoLotDetails.forEach(lot => {
+      mergedMap.set(lot.lot_type, { 
+        lot_type: lot.lot_type,
+        available_lots: 0, // Default, will be updated from availability API
+        total_lots: lot.total_lots,
+      });
+    });
+
+    // Update with availability data (contains available_lots)
+    availabilityLotDetails.forEach(lot => {
+      const existing = mergedMap.get(lot.lot_type);
+      if (existing) {
+        existing.available_lots = lot.available_lots;
+      } else {
+        // If lot type exists in availability but not in info, add it
+        mergedMap.set(lot.lot_type, { 
+          lot_type: lot.lot_type,
+          available_lots: lot.available_lots,
+          total_lots: undefined, // No total available for this lot type
+        });
+      }
+    });
+
+    return Array.from(mergedMap.values());
   }
 
   /**

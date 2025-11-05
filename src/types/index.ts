@@ -1,3 +1,9 @@
+export interface CarparkLotDetails {
+  lot_type: string;
+  available_lots: number;
+  total_lots?: number;
+}
+
 export interface Carpark {
   id: string;
   name: string;
@@ -9,7 +15,8 @@ export interface Carpark {
     lng: number;
   };
   totalLots: number | null;
-  availableLots: number;
+  availableLots: number; // Total available across all lot types
+  lotDetails: CarparkLotDetails[]; // Detailed breakdown by lot type
   evLots: number;
   availableEvLots: number;
   rates: {
@@ -30,7 +37,8 @@ export interface Carpark {
   paymentMethods: string[];
   car_park_type: string;
   type_of_parking_system: string;
-  lot_type: string;
+  // Legacy field for backward compatibility
+  lot_type?: string;
 }
 
 export type ViewType =
@@ -158,12 +166,17 @@ export interface MapState {
 }
 
 // API Response Types
+export interface LotInfo {
+  lot_type: string;
+  lots_available: string; // API returns as string
+}
+
 export interface CarparkInfoApiResponse {
   carpark_number: string;
   address: string;
   car_park_type: string;
   type_of_parking_system: string;
-  lot_type: string;
+  lots: LotInfo[]; // New format with multiple lot types
   x_coord: string; // API returns as string
   y_coord: string; // API returns as string
   total_lots?: number;
@@ -177,12 +190,16 @@ export interface CarparkInfoApiResponse {
   gantry_height?: string;
   ev_lot_location?: string;
   name?: string; // Optional since not always present in API
+  // Legacy fields for backward compatibility
+  lot_type?: string;
 }
 
 export interface CarparkAvailabilityApiResponse {
   carpark_number: string;
-  lots_available: string;
+  lots: LotInfo[]; // New format with multiple lot types
   timestamp?: string;
+  // Legacy field for backward compatibility
+  lots_available?: string;
 }
 
 export interface LoginCredentials {

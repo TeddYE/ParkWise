@@ -29,6 +29,7 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
   const freeFeatures = [
     'Live carpark availability',
     'EV charging bay information',
+    'Save favorite carparks',
     'Interactive map with nearby carparks',
     'Basic search and filtering',
     'Cost calculator',
@@ -37,7 +38,6 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
 
   const premiumFeatures = [
     'Everything in Free Plan',
-    'Save favorite carparks',
     '24-hour availability forecasts',
     'Smart parking insights',
     'Advanced filtering options',
@@ -196,7 +196,7 @@ export function PricingView({ isPremium, onSubscribe, onViewChange, user, onDown
                       { feature: 'EV charging information', free: true, premium: true, icon: Zap },
                       { feature: 'Cost calculator', free: true, premium: true, icon: Calculator },
                       { feature: 'Basic search & filtering', free: true, premium: true, icon: Bell },
-                      { feature: 'Save favorite carparks', free: false, premium: true, icon: Heart },
+                      { feature: 'Save favorite carparks', free: true, premium: true, icon: Heart },
                       { feature: '24-hour forecasts', free: false, premium: true, icon: Star },
                       { feature: 'Smart parking insights', free: false, premium: true, icon: Bell },
                       { feature: 'Advanced filtering', free: false, premium: true, icon: Bell },

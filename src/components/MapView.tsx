@@ -10,6 +10,8 @@ import {
   MapPin,
   Navigation,
   Car,
+  Motorbike,
+  Truck,
   Zap,
   Clock,
   DollarSign,
@@ -37,8 +39,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 import { Carpark, User } from "../types";
 import { LeafletMap } from "./LeafletMap";
-import { useDrivingTimes } from "../hooks/useDrivingTimes";
-import { useCarparks } from "../hooks/useCarparks";
+
 import { getCarparkDisplayName } from "../utils/carpark";
 import { calculateDistance } from "../utils/distance";
 import { isPostalCode } from "../utils/postalCode";
@@ -57,6 +58,12 @@ interface MapViewProps {
   isPremium: boolean;
   user?: User;
   onUpdateUser?: (user: User) => void;
+  userLocation: { lat: number; lng: number } | null;
+  onGetUserLocation: () => void;
+  isLoadingLocation: boolean;
+  carparks: Carpark[];
+  isLoadingCarparks: boolean;
+  onRefreshCarparks: () => Promise<void>;
 }
 
 export function MapView({
@@ -65,18 +72,18 @@ export function MapView({
   isPremium,
   user,
   onUpdateUser,
+  userLocation,
+  onGetUserLocation,
+  isLoadingLocation,
+  carparks,
+  isLoadingCarparks,
+  onRefreshCarparks,
 }: MapViewProps) {
   const [searchRadius, setSearchRadius] = useState([5]);
   const [selectedCarpark, setSelectedCarpark] = useState<
     string | null
   >(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [userLocation, setUserLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-  const [isLoadingLocation, setIsLoadingLocation] =
-    useState(false);
   const [visibleCount, setVisibleCount] = useState(5);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [mapBounds, setMapBounds] = useState<{
@@ -94,103 +101,25 @@ export function MapView({
     lng: number;
     address?: string;
   } | null>(null);
-  const [selectedLotTypes, setSelectedLotTypes] = useState<string[]>([]);
+  const [selectedLotTypes, setSelectedLotTypes] = useState<string[]>(['C', 'Y', 'H']);
   const [selectedCarparkTypes, setSelectedCarparkTypes] = useState<string[]>([]);
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  // Fetch carparks from the API
-  const { carparks: apiCarparks, loading: isLoadingCarparks, refetch: refetchCarparks } =
-    useCarparks();
-
-  // Use the driving times hook to get carparks with real or estimated driving times
-  const {
-    carparks: carparksWithDistance,
-    isLoading: isLoadingDrivingTimes,
-  } = useDrivingTimes({
-    carparks: apiCarparks,
-    userLocation,
-    enableRealTimes: true, // Set to true to use OSRM API
-  });
-
-  // Ensure carparks have driving times calculated if user location is available
-  const carparksWithCalculatedTimes = useMemo(() => {
-    if (!userLocation) return carparksWithDistance;
-    
-    return carparksWithDistance.map(carpark => {
-      // If driving time is already calculated, use it
-      if (carpark.drivingTime !== undefined) {
-        return carpark;
-      }
-      
-      // Otherwise, calculate it manually
-      const distance = calculateDistance(
-        userLocation.lat,
-        userLocation.lng,
-        carpark.coordinates.lat,
-        carpark.coordinates.lng
-      );
-      
-      const estimatedDrivingTime = Math.round((distance / 30) * 60); // 30 km/h average speed
-      
-      return {
-        ...carpark,
-        distance,
-        drivingTime: estimatedDrivingTime,
-      };
-    });
-  }, [carparksWithDistance, userLocation]);
 
 
 
-  const getUserLocation = () => {
-    if (!navigator.geolocation) {
-      return;
-    }
 
-    setIsLoadingLocation(true);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const location = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-
-        setUserLocation(location);
-        setIsLoadingLocation(false);
-      },
-      (error) => {
-        console.error(
-          "Location access denied or unavailable:",
-          error,
-        );
-        
-        // For testing purposes, use a default Singapore location
-        const defaultLocation = {
-          lat: 1.3521, // Singapore city center
-          lng: 103.8198
-        };
-
-        setUserLocation(defaultLocation);
-        setIsLoadingLocation(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0,
-      },
-    );
-  };
 
   // Memoize event handlers
   const handleRefresh = useCallback(async () => {
-    await refetchCarparks();
+    await onRefreshCarparks();
     toast.success('Carpark data refreshed', {
       description: 'Availability data has been updated',
       duration: 2000,
     });
-  }, [refetchCarparks]);
+  }, [onRefreshCarparks]);
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) {
@@ -302,27 +231,27 @@ export function MapView({
   // Memoize unique filter options
   const uniqueLotTypes = useMemo(() => Array.from(
     new Set(
-      carparksWithCalculatedTimes
-        .map((cp) => cp.lot_type)
-        .filter((type) => type && type.trim() !== "")
+      carparks
+        .flatMap((cp) => cp.lotDetails?.map(lot => lot.lot_type) || [cp.lot_type].filter(Boolean))
+        .filter((type) => type && type.trim() !== "" && ['C', 'Y', 'H'].includes(type))
     )
-  ).sort(), [carparksWithCalculatedTimes]);
+  ).sort(), [carparks]);
 
   const uniqueCarparkTypes = useMemo(() => Array.from(
     new Set(
-      carparksWithCalculatedTimes
+      carparks
         .map((cp) => cp.car_park_type)
         .filter((type) => type && type.trim() !== "")
     )
-  ).sort(), [carparksWithCalculatedTimes]);
+  ).sort(), [carparks]);
 
   const uniquePaymentMethods = useMemo(() => Array.from(
     new Set(
-      carparksWithCalculatedTimes
+      carparks
         .flatMap((cp) => cp.paymentMethods)
         .filter((method) => method && method.trim() !== "")
     )
-  ).sort(), [carparksWithCalculatedTimes]);
+  ).sort(), [carparks]);
 
   // Memoize formatting functions
   const formatLotType = useCallback((lotType: string): string => {
@@ -370,22 +299,21 @@ export function MapView({
 
   // Clear all filters
   const clearAllFilters = () => {
-    setSelectedLotTypes([]);
+    setSelectedLotTypes(['C', 'Y', 'H']); // Select all lot types by default
     setSelectedCarparkTypes([]);
     setSelectedPaymentMethods([]);
-    setSearchRadius([5]);
     setShowFavoritesOnly(false);
   };
 
   // Filter carparks by search query or map bounds
   const carparksInBounds = (() => {
-    let filtered = carparksWithCalculatedTimes;
+    let filtered = carparks;
 
     // If there's a search location (postal code or address search)
     if (searchLocation) {
       // Filter by distance from search location
       const radius = searchRadius[0]; // in km
-      filtered = carparksWithCalculatedTimes
+      filtered = carparks
         .map((carpark) => ({
           ...carpark,
           searchDistance: calculateDistance(
@@ -402,7 +330,7 @@ export function MapView({
     else if (searchQuery.trim() && !isPostalCode(searchQuery)) {
       // Filter by address text match
       const query = searchQuery.toLowerCase();
-      filtered = carparksWithCalculatedTimes.filter((carpark) => {
+      filtered = carparks.filter((carpark) => {
         const address = (carpark.address || '').toLowerCase();
         const name = (carpark.name || '').toLowerCase();
         return address.includes(query) || name.includes(query);
@@ -410,7 +338,7 @@ export function MapView({
     }
     // Default: filter by map bounds
     else if (mapBounds) {
-      filtered = carparksWithCalculatedTimes.filter((carpark) => {
+      filtered = carparks.filter((carpark) => {
         return (
           carpark.latitude >= mapBounds.south &&
           carpark.latitude <= mapBounds.north &&
@@ -422,9 +350,19 @@ export function MapView({
 
     // Apply lot type filter (free feature)
     if (selectedLotTypes.length > 0) {
-      filtered = filtered.filter((carpark) =>
-        selectedLotTypes.includes(carpark.lot_type)
-      );
+      filtered = filtered.filter((carpark) => {
+        // Check if carpark has any of the selected lot types with capacity > 0
+        if (carpark.lotDetails && carpark.lotDetails.length > 0) {
+          const availableLotTypes = carpark.lotDetails
+            .filter(lot => lot.total_lots && lot.total_lots > 0)
+            .map(lot => lot.lot_type);
+          return selectedLotTypes.some(selectedType => availableLotTypes.includes(selectedType));
+        } else {
+          // Fallback to legacy lot_type field
+          const carparkLotTypes = [carpark.lot_type].filter(Boolean);
+          return selectedLotTypes.some(selectedType => carparkLotTypes.includes(selectedType));
+        }
+      });
     }
 
     // Apply carpark type filter (free feature)
@@ -449,6 +387,8 @@ export function MapView({
         user.favoriteCarparks!.includes(carpark.id)
       );
     }
+
+
 
     return filtered;
   })();
@@ -553,10 +493,7 @@ export function MapView({
     setVisibleCount(5);
   }, [carparksInBounds.length]);
 
-  // Automatically request user location on mount
-  useEffect(() => {
-    getUserLocation();
-  }, []);
+
 
   // Handle map bounds change
   const handleBoundsChange = useCallback(
@@ -661,7 +598,7 @@ export function MapView({
                 <Search className="w-4 h-4" />
               )}
             </Button>
-            {isPremium && user?.favoriteCarparks && user.favoriteCarparks.length > 0 && (
+            {user?.favoriteCarparks && user.favoriteCarparks.length > 0 && (
               <Button
                 size="icon"
                 variant={showFavoritesOnly ? "default" : "outline"}
@@ -704,136 +641,132 @@ export function MapView({
           )}
 
           {showFilters && (
-            <div className="space-y-4 p-3 bg-muted rounded-lg">
-              {/* Search Radius */}
-              <div>
-                <label className="text-sm mb-2 block">
-                  Search Radius: {searchRadius[0]}km
-                </label>
-                <Slider
-                  value={searchRadius}
-                  onValueChange={setSearchRadius}
-                  max={10}
-                  min={1}
-                  step={0.5}
-                  className="w-full"
-                />
-              </div>
-
-              {/* Lot Type Filter */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm">
-                    Lot Type
-                  </label>
-                  {selectedLotTypes.length > 0 && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-auto p-0 text-xs"
-                      onClick={() => setSelectedLotTypes([])}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  {uniqueLotTypes.map((lotType) => (
-                    <div key={lotType} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`lot-${lotType}`}
-                        checked={selectedLotTypes.includes(lotType)}
-                        onCheckedChange={() => toggleLotType(lotType)}
-                      />
-                      <Label
-                        htmlFor={`lot-${lotType}`}
-                        className="text-sm cursor-pointer"
-                      >
-                        {formatLotType(lotType)}
-                      </Label>
+            <div className="space-y-6 p-4 bg-gradient-to-br from-background to-muted/50 rounded-xl border shadow-sm">
+              {/* Filters */}
+              <div className="space-y-4">
+                  {/* Lot Type Filter - Premium Only */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                        Lot Type
+                        {!isPremium && <Badge variant="secondary" className="text-xs">Premium</Badge>}
+                      </label>
+                      {selectedLotTypes.length !== 3 && isPremium && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => setSelectedLotTypes(['C', 'Y', 'H'])}
+                        >
+                          Select All
+                        </Button>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Carpark Type Filter */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm">
-                    Carpark Type
-                  </label>
-                  {selectedCarparkTypes.length > 0 && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-auto p-0 text-xs"
-                      onClick={() => setSelectedCarparkTypes([])}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {uniqueCarparkTypes.map((carparkType) => (
-                    <div key={carparkType} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`carpark-${carparkType}`}
-                        checked={selectedCarparkTypes.includes(carparkType)}
-                        onCheckedChange={() => toggleCarparkType(carparkType)}
-                      />
-                      <Label
-                        htmlFor={`carpark-${carparkType}`}
-                        className="text-sm cursor-pointer"
-                      >
-                        {formatCarparkType(carparkType)}
-                      </Label>
+                    <div className="grid grid-cols-1 gap-1">
+                      {uniqueLotTypes.map((lotType) => (
+                        <div key={lotType} className="flex items-center space-x-2 p-1 rounded hover:bg-muted/30">
+                          <Checkbox
+                            id={`lot-${lotType}`}
+                            checked={selectedLotTypes.includes(lotType)}
+                            onCheckedChange={() => {
+                              if (!isPremium) {
+                                onViewChange('pricing');
+                                return;
+                              }
+                              toggleLotType(lotType);
+                            }}
+                          />
+                          <Label
+                            htmlFor={`lot-${lotType}`}
+                            className="text-xs cursor-pointer flex-1"
+                          >
+                            {formatLotType(lotType)}
+                          </Label>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* Payment Method Filter */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm">
-                    Payment Method
-                  </label>
-                  {selectedPaymentMethods.length > 0 && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-auto p-0 text-xs"
-                      onClick={() => setSelectedPaymentMethods([])}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {uniquePaymentMethods.map((paymentMethod) => (
-                    <div key={paymentMethod} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`payment-${paymentMethod}`}
-                        checked={selectedPaymentMethods.includes(paymentMethod)}
-                        onCheckedChange={() => togglePaymentMethod(paymentMethod)}
-                      />
-                      <Label
-                        htmlFor={`payment-${paymentMethod}`}
-                        className="text-sm cursor-pointer"
-                      >
-                        {paymentMethod}
-                      </Label>
+                  {/* Carpark Type Filter */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Carpark Type
+                      </label>
+                      {selectedCarparkTypes.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => setSelectedCarparkTypes([])}
+                        >
+                          Clear
+                        </Button>
+                      )}
                     </div>
-                  ))}
-                </div>
+                    <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto">
+                      {uniqueCarparkTypes.map((carparkType) => (
+                        <div key={carparkType} className="flex items-center space-x-2 p-1 rounded hover:bg-muted/30">
+                          <Checkbox
+                            id={`carpark-${carparkType}`}
+                            checked={selectedCarparkTypes.includes(carparkType)}
+                            onCheckedChange={() => toggleCarparkType(carparkType)}
+                          />
+                          <Label
+                            htmlFor={`carpark-${carparkType}`}
+                            className="text-xs cursor-pointer flex-1"
+                          >
+                            {formatCarparkType(carparkType)}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+
+                  {/* Payment Method Filter */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Payment Method
+                      </label>
+                      {selectedPaymentMethods.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => setSelectedPaymentMethods([])}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto">
+                      {uniquePaymentMethods.map((paymentMethod) => (
+                        <div key={paymentMethod} className="flex items-center space-x-2 p-1 rounded hover:bg-muted/30">
+                          <Checkbox
+                            id={`payment-${paymentMethod}`}
+                            checked={selectedPaymentMethods.includes(paymentMethod)}
+                            onCheckedChange={() => togglePaymentMethod(paymentMethod)}
+                          />
+                          <Label
+                            htmlFor={`payment-${paymentMethod}`}
+                            className="text-xs cursor-pointer flex-1"
+                          >
+                            {paymentMethod}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
               </div>
 
               {/* Clear All Filters Button */}
-              {(selectedLotTypes.length > 0 || selectedCarparkTypes.length > 0 || selectedPaymentMethods.length > 0 || searchRadius[0] !== 5) && (
+              {(selectedLotTypes.length !== 3 || selectedCarparkTypes.length > 0 || selectedPaymentMethods.length > 0 || showFavoritesOnly) && (
                 <Button
                   size="sm"
                   variant="outline"
-                  className="w-full"
+                  className="w-full bg-destructive/5 hover:bg-destructive/10 text-destructive border-destructive/20"
                   onClick={clearAllFilters}
                 >
                   Clear All Filters
@@ -850,9 +783,7 @@ export function MapView({
                   Location: {userLocation.lat.toFixed(4)}°,{" "}
                   {userLocation.lng.toFixed(4)}°
                 </span>
-                {isLoadingDrivingTimes && (
-                  <Loader2 className="w-3 h-3 animate-spin text-blue-600 dark:text-blue-400" />
-                )}
+
               </div>
 
             </div>
@@ -863,17 +794,11 @@ export function MapView({
                 <span className="text-muted-foreground">
                   Showing Singapore area
                 </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="ml-auto h-6 px-2 text-xs"
-                  onClick={getUserLocation}
-                  disabled={isLoadingLocation}
-                >
-                  {isLoadingLocation
-                    ? "Getting..."
-                    : "Use My Location"}
-                </Button>
+                {isLoadingLocation && (
+                  <span className="ml-auto text-xs text-blue-600">
+                    Getting location...
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -902,7 +827,7 @@ export function MapView({
               )}
             </div>
             <div className="flex items-center gap-2">
-              {(isLoadingCarparks || isLoadingDrivingTimes) && (
+              {isLoadingCarparks && (
                 <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               )}
               <Button
@@ -973,26 +898,68 @@ export function MapView({
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <Car className="w-3 h-3" />
-                          <span className="text-sm">
-                            {carpark.availableLots}/
-                            {carpark.totalLots !== null ? carpark.totalLots : 'N/A'}
-                          </span>
+                      <div className="space-y-2">
+                        {/* Lot Types Row */}
+                        <div className="flex flex-wrap gap-2">
+                          {carpark.lotDetails && carpark.lotDetails.length > 0 ? (
+                            carpark.lotDetails.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0).map((lot) => {
+                              const getLotIcon = (lotType: string) => {
+                                switch (lotType) {
+                                  case 'C': return <Car className="w-3 h-3" />;
+                                  case 'Y': return <Motorbike className="w-3 h-3" />;
+                                  case 'H': return <Truck className="w-3 h-3" />;
+                                  default: return <Car className="w-3 h-3" />;
+                                }
+                              };
+
+                              const getLotBgColor = (lotType: string) => {
+                                switch (lotType) {
+                                  case 'C': return 'bg-blue-100 text-blue-800';
+                                  case 'Y': return 'bg-green-100 text-green-800';
+                                  case 'H': return 'bg-orange-100 text-orange-800';
+                                  default: return 'bg-blue-100 text-blue-800';
+                                }
+                              };
+                              
+                              return (
+                                <div key={lot.lot_type} className={`flex items-center gap-1 px-2 py-1 rounded text-xs ${getLotBgColor(lot.lot_type)}`}>
+                                  {getLotIcon(lot.lot_type)}
+                                  <span>
+                                    {lot.available_lots}/{lot.total_lots || 'N/A'}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                              <Car className="w-3 h-3" />
+                              <span>
+                                {carpark.availableLots}/N/A
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <div
-                          className={`w-2 h-2 rounded-full ${getAvailabilityColor(carpark.availableLots, carpark.totalLots)}`}
-                        />
+                        
+                        {/* EV Row */}
+                        {carpark.evLots > 0 && (
+                          <div className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                            <Zap className="w-3 h-3" />
+                            <span>{carpark.evLots} EV</span>
+                          </div>
+                        )}
                       </div>
-                      {carpark.evLots > 0 && (
-                        <div className="flex items-center gap-1">
-                          <Zap className="w-3 h-3 text-blue-600" />
-                          <span className="text-sm text-blue-600">
-                            {carpark.evLots} EV
-                          </span>
-                        </div>
-                      )}
+                      <div
+                        className={`w-2 h-2 rounded-full ${(() => {
+                          // Use car lots (Type C) for marker color logic
+                          const carLot = carpark.lotDetails?.find(lot => lot.lot_type === 'C');
+                          if (carLot) {
+                            return getAvailabilityColor(carLot.available_lots, carLot.total_lots || null);
+                          }
+                          // Fallback to overall availability
+                          return getAvailabilityColor(carpark.availableLots, carpark.totalLots);
+                        })()}`}
+                      />
+
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
@@ -1087,6 +1054,7 @@ export function MapView({
           onBoundsChange={handleBoundsChange}
           onZoomChange={handleZoomChange}
           searchLocation={searchLocation}
+          selectedLotTypes={selectedLotTypes}
         />
 
         {!isPremium && (
@@ -1110,18 +1078,27 @@ export function MapView({
 
         {/* Map Controls */}
         <div className="absolute top-4 right-4 flex flex-col gap-2">
-          <Button
-            size="icon"
-            variant="outline"
-            className="bg-white"
-            onClick={getUserLocation}
-            title="Get my location"
-            disabled={isLoadingLocation}
+          {/* Location status indicator */}
+          <div
+            className={`p-2 rounded-md bg-white border ${
+              userLocation 
+                ? 'border-green-200 text-green-600' 
+                : isLoadingLocation 
+                  ? 'border-blue-200 text-blue-600' 
+                  : 'border-gray-200 text-gray-400'
+            }`}
+            title={
+              userLocation 
+                ? 'Location enabled' 
+                : isLoadingLocation 
+                  ? 'Getting location...' 
+                  : 'Location unavailable'
+            }
           >
             <Locate
               className={`w-4 h-4 ${isLoadingLocation ? "animate-spin" : ""}`}
             />
-          </Button>
+          </div>
           <Button
             size="icon"
             variant="outline"

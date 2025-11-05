@@ -13,9 +13,11 @@ import { toast } from "sonner";
 import { useAuth } from "./hooks/useAuth";
 import { useAppState } from "./hooks/useAppState";
 import { useDarkMode } from "./hooks/useDarkMode";
+import { useCarparks } from "./hooks/useCarparks";
+import { useDrivingTimes } from "./hooks/useDrivingTimes";
 import { AppProviders } from "./contexts";
 import { User } from "./types";
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, useState, useEffect } from "react";
 
 function AppContent() {
   const {
@@ -38,7 +40,87 @@ function AppContent() {
   
   const { isDarkMode, toggleDarkMode } = useDarkMode();
 
+  // Simplified location state - no persistence, no continuous tracking
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+
+  // Shared carparks data
+  const { carparks: apiCarparks, loading: isLoadingCarparks, refetch: refetchCarparks } = useCarparks();
+
+  // Shared driving times calculation
+  const { carparks: carparksWithDrivingTimes, isLoading: isLoadingDrivingTimes } = useDrivingTimes({
+    carparks: apiCarparks,
+    userLocation,
+    enableRealTimes: true,
+  });
+
+  // Debug when carparks with driving times change
+  useEffect(() => {
+    if (carparksWithDrivingTimes.length > 0) {
+      console.log('🏁 App received updated carparks:', carparksWithDrivingTimes.length);
+      console.log('🏁 Sample carpark with driving times:', {
+        id: carparksWithDrivingTimes[0].id,
+        distance: carparksWithDrivingTimes[0].distance,
+        drivingTime: carparksWithDrivingTimes[0].drivingTime
+      });
+    }
+  }, [carparksWithDrivingTimes]);
+
   const isPremium = useMemo(() => user?.subscription === "premium", [user?.subscription]);
+
+  // Automatically request location on app startup
+  useEffect(() => {
+    getUserLocation();
+  }, []); // Run once on mount
+
+  // Simple location function - get location once
+  const getUserLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by this browser');
+      return;
+    }
+
+    setIsLoadingLocation(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const location = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        
+        setUserLocation(location);
+        setIsLoadingLocation(false);
+        toast.success('Location enabled', {
+          description: 'Now showing distances and driving times',
+          duration: 2000,
+        });
+      },
+      (error) => {
+        console.error('Location access denied or unavailable:', error);
+        setIsLoadingLocation(false);
+        
+        // For testing purposes, use a default Singapore location
+        const defaultLocation = {
+          lat: 1.3521, // Singapore city center
+          lng: 103.8198
+        };
+        
+        setUserLocation(defaultLocation);
+        toast.info('Using default location', {
+          description: 'Using Singapore city center for distance calculations',
+          duration: 3000,
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000, // 5 minutes
+      }
+    );
+  }, []);
+
+
 
   const handleSignOut = useCallback(() => {
     signOut();
@@ -146,6 +228,12 @@ function AppContent() {
             isPremium={isPremium}
             user={user}
             onUpdateUser={updateUser}
+            userLocation={userLocation}
+            onGetUserLocation={getUserLocation}
+            isLoadingLocation={isLoadingLocation}
+            carparks={carparksWithDrivingTimes}
+            isLoadingCarparks={isLoadingCarparks}
+            onRefreshCarparks={refetchCarparks}
           />
         )}
 
@@ -155,6 +243,11 @@ function AppContent() {
             onViewChange={handleViewChange}
             isPremium={isPremium}
             user={user || undefined}
+            userLocation={userLocation}
+            onGetUserLocation={getUserLocation}
+            isLoadingLocation={isLoadingLocation}
+            carparks={carparksWithDrivingTimes}
+            isLoadingCarparks={isLoadingCarparks}
           />
         )}
 

@@ -91,9 +91,11 @@ export class CarparkService {
       if (records.length > 0) {
         console.log('Sample carpark info record:', {
           carpark_number: records[0].carpark_number,
+          lots: records[0].lots,
           total_lots: records[0].total_lots,
           current_rate_30min: records[0].current_rate_30min,
           active_cap_amount: records[0].active_cap_amount,
+          legacy_lot_type: records[0].lot_type,
         });
       }
 
@@ -159,6 +161,16 @@ export class CarparkService {
       );
 
       console.log(`Cached ${records.length} availability records`);
+      
+      // Log sample for debugging new lots format
+      if (records.length > 0) {
+        console.log('Sample availability record:', {
+          carpark_number: records[0].carpark_number,
+          lots: records[0].lots,
+          legacy_lots_available: records[0].lots_available,
+        });
+      }
+      
       return records;
     } catch (error) {
       // Try to get expired cache as fallback

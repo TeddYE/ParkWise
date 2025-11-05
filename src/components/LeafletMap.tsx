@@ -10,6 +10,7 @@ interface LeafletMapProps {
   onBoundsChange?: (bounds: { north: number; south: number; east: number; west: number }) => void;
   onZoomChange?: (zoom: number) => void;
   searchLocation?: { lat: number; lng: number; address?: string } | null;
+  selectedLotTypes?: string[];
 }
 
 declare global {
@@ -18,7 +19,7 @@ declare global {
   }
 }
 
-export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarparkClick, onBoundsChange, onZoomChange, searchLocation }: LeafletMapProps) {
+export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarparkClick, onBoundsChange, onZoomChange, searchLocation, selectedLotTypes = ['C', 'Y', 'H'] }: LeafletMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -324,14 +325,22 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
       const actualDistance = carpark.distance !== undefined ? carpark.distance : null;
       const actualDrivingTime = carpark.drivingTime !== undefined ? carpark.drivingTime : null;
 
-      // Determine marker color based on occupancy (filled percentage)
-      const occupancyPercentage = carpark.totalLots !== null && carpark.totalLots > 0
-        ? ((carpark.totalLots - carpark.availableLots) / carpark.totalLots) * 100
+      // Calculate availability and total for selected lot types only
+      const selectedLotData = carpark.lotDetails?.filter(lot => 
+        selectedLotTypes.includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0
+      ) || [];
+      
+      const selectedAvailable = selectedLotData.reduce((sum, lot) => sum + lot.available_lots, 0);
+      const selectedTotal = selectedLotData.reduce((sum, lot) => sum + (lot.total_lots || 0), 0);
+      
+      // Determine marker color based on occupancy (filled percentage) of selected lot types
+      const occupancyPercentage = selectedTotal > 0
+        ? ((selectedTotal - selectedAvailable) / selectedTotal) * 100
         : 0;
 
       let markerColor = '#22c55e'; // green (default - less than 60% filled)
-      if (carpark.totalLots === null) {
-        markerColor = '#9ca3af'; // gray for unknown
+      if (selectedTotal === 0) {
+        markerColor = '#9ca3af'; // gray for no selected lot types available
       } else if (occupancyPercentage > 80) {
         markerColor = '#ef4444'; // red (more than 80% filled)
       } else if (occupancyPercentage > 60) {
@@ -420,36 +429,89 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
             </span>
           </div>
           ` : ''}
-          <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
-            <span style="
-              display: inline-flex;
-              align-items: center;
-              gap: 5px;
-              font-size: 12px;
-              padding: 4px 10px;
-              background: ${occupancyPercentage <= 60 ? 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)' : occupancyPercentage <= 80 ? 'linear-gradient(135deg, #fef9c3 0%, #fef08a 100%)' : 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)'};
-              color: ${occupancyPercentage <= 60 ? '#166534' : occupancyPercentage <= 80 ? '#854d0e' : '#991b1b'};
-              border-radius: 6px;
-              font-weight: 600;
-              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            ">
-              🚗 ${carpark.totalLots !== null ? carpark.totalLots - carpark.availableLots : 'N/A'}/${carpark.totalLots !== null ? carpark.totalLots : 'N/A'}
-            </span>
+          <div style="margin-bottom: 10px;">
+            ${carpark.lotDetails && carpark.lotDetails.length > 0 ? 
+              carpark.lotDetails.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0).map(lot => {
+                const getLotIcon = (lotType: string) => {
+                  switch (lotType) {
+                    case 'C': return '🚗';
+                    case 'Y': return '🏍️';
+                    case 'H': return '🚛';
+                    default: return '🚗';
+                  }
+                };
+                
+                const getLotBgColor = (lotType: string) => {
+                  switch (lotType) {
+                    case 'C': return 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+                    case 'Y': return 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)';
+                    case 'H': return 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)';
+                    default: return 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+                  }
+                };
+                
+                const getLotTextColor = (lotType: string) => {
+                  switch (lotType) {
+                    case 'C': return '#1e40af';
+                    case 'Y': return '#166534';
+                    case 'H': return '#c2410c';
+                    default: return '#1e40af';
+                  }
+                };
+                
+                return `
+                  <span style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 5px;
+                    font-size: 12px;
+                    padding: 4px 10px;
+                    background: ${getLotBgColor(lot.lot_type)};
+                    color: ${getLotTextColor(lot.lot_type)};
+                    border-radius: 6px;
+                    font-weight: 600;
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                    margin-right: 6px;
+                    margin-bottom: 6px;
+                  ">
+                    ${getLotIcon(lot.lot_type)} ${lot.available_lots}/${lot.total_lots || 'N/A'}
+                  </span>
+                `;
+              }).join('')
+              : `
+                <span style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 5px;
+                  font-size: 12px;
+                  padding: 4px 10px;
+                  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+                  color: #1e40af;
+                  border-radius: 6px;
+                  font-weight: 600;
+                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                ">
+                  🚗 ${carpark.availableLots}/N/A
+                </span>
+              `
+            }
             ${carpark.evLots > 0 ? `
-              <span style="
-                display: inline-flex;
-                align-items: center;
-                gap: 5px;
-                font-size: 12px;
-                padding: 4px 10px;
-                background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-                color: #1e40af;
-                border-radius: 6px;
-                font-weight: 600;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-              ">
-                ⚡ ${carpark.evLots} EV
-              </span>
+              <div style="margin-top: 6px;">
+                <span style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 5px;
+                  font-size: 12px;
+                  padding: 4px 10px;
+                  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+                  color: #1e40af;
+                  border-radius: 6px;
+                  font-weight: 600;
+                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                ">
+                  ⚡ ${carpark.evLots} EV
+                </span>
+              </div>
             ` : ''}
           </div>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding-top: 10px; border-top: 2px solid #f3f4f6;">
