@@ -9,7 +9,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { User as UserType, Carpark, ViewType } from '../types';
-import { useCarparks } from '../hooks/useCarparks';
+import { CarparkService } from '../services/carparkService';
 import { toast } from "sonner";
 import { AuthService } from '../services/authService';
 import { validatePassword } from '../utils/validation';
@@ -24,7 +24,8 @@ interface ProfileViewProps {
 }
 
 export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark, isPremium }: ProfileViewProps) {
-  const { carparks, loading } = useCarparks();
+  const [carparks, setCarparks] = useState<Carpark[]>([]);
+  const [loading, setLoading] = useState(false);
   const [favoriteCarparks, setFavoriteCarparks] = useState<Carpark[]>([]);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editName, setEditName] = useState(user.name || '');
@@ -36,6 +37,23 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark,
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Fetch carparks on mount
+  useEffect(() => {
+    const fetchCarparks = async () => {
+      try {
+        setLoading(true);
+        const data = await CarparkService.fetchCarparks();
+        setCarparks(data);
+      } catch (error) {
+        console.error('Failed to fetch carparks:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCarparks();
+  }, []);
 
   useEffect(() => {
     if (carparks.length > 0 && user.favoriteCarparks) {

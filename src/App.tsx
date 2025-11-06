@@ -11,28 +11,20 @@ import { ProfileView } from "./components/ProfileView";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
 import { useAuth } from "./hooks/useAuth";
-import { useAppState } from "./hooks/useAppState";
 import { useDarkMode } from "./hooks/useDarkMode";
-import { useCarparks } from "./hooks/useCarparks";
 import { useDrivingTimes } from "./hooks/useDrivingTimes";
-import { AppProviders } from "./contexts";
-import { User } from "./types";
-import { memo, useCallback, useMemo, useState, useEffect } from "react";
+import { User, ViewType, Carpark } from "./types";
+import { useCallback, useMemo, useState, useEffect } from "react";
+import { CarparkService } from "./services/carparkService";
 
 function AppContent() {
-  const {
-    currentView,
-    selectedCarpark,
-    selectedPlan,
-    handleViewChange,
-    handleSelectCarpark,
-    handleBackToMap,
-    handlePlanChange,
-  } = useAppState();
+  // Local app state management (replacing deleted useAppState)
+  const [currentView, setCurrentView] = useState<ViewType>('map');
+  const [selectedCarpark, setSelectedCarpark] = useState<Carpark | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">('monthly');
   
   const {
     user,
-    isAuthenticated,
     loading,
     signOut,
     updateUser,
@@ -44,25 +36,65 @@ function AppContent() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
-  // Shared carparks data
-  const { carparks: apiCarparks, loading: isLoadingCarparks, refetch: refetchCarparks } = useCarparks();
+  // Local carparks data management (replacing deleted useCarparks)
+  const [apiCarparks, setApiCarparks] = useState<Carpark[]>([]);
+  const [isLoadingCarparks, setIsLoadingCarparks] = useState(false);
 
   // Shared driving times calculation
-  const { carparks: carparksWithDrivingTimes, isLoading: isLoadingDrivingTimes } = useDrivingTimes({
+  const { carparks: carparksWithDrivingTimes } = useDrivingTimes({
     carparks: apiCarparks,
     userLocation,
     enableRealTimes: true,
   });
 
+  // Local app state handlers (replacing deleted useAppState)
+  const handleViewChange = useCallback((view: string) => {
+    setCurrentView(view as ViewType);
+  }, []);
+
+  const handleSelectCarpark = useCallback((carpark: Carpark | null) => {
+    setSelectedCarpark(carpark);
+    if (carpark) {
+      setCurrentView('details');
+    }
+  }, []);
+
+  const handleBackToMap = useCallback(() => {
+    setSelectedCarpark(null);
+    setCurrentView('map');
+  }, []);
+
+  const handlePlanChange = useCallback((plan: "monthly" | "annual") => {
+    setSelectedPlan(plan);
+  }, []);
+
+  // Fetch carparks function (replacing deleted useCarparks)
+  const fetchCarparks = useCallback(async () => {
+    try {
+      setIsLoadingCarparks(true);
+      const data = await CarparkService.fetchCarparks();
+      setApiCarparks(data);
+    } catch (error) {
+      console.error('Failed to fetch carparks:', error);
+      toast.error('Failed to load carpark data');
+    } finally {
+      setIsLoadingCarparks(false);
+    }
+  }, []);
+
+  const refetchCarparks = useCallback(async () => {
+    await fetchCarparks();
+  }, [fetchCarparks]);
+
+  // Auto-fetch carparks on mount
+  useEffect(() => {
+    fetchCarparks();
+  }, [fetchCarparks]);
+
   // Debug when carparks with driving times change
   useEffect(() => {
     if (carparksWithDrivingTimes.length > 0) {
-      console.log('🏁 App received updated carparks:', carparksWithDrivingTimes.length);
-      console.log('🏁 Sample carpark with driving times:', {
-        id: carparksWithDrivingTimes[0].id,
-        distance: carparksWithDrivingTimes[0].distance,
-        drivingTime: carparksWithDrivingTimes[0].drivingTime
-      });
+      // Carparks loaded successfully
     }
   }, [carparksWithDrivingTimes]);
 
@@ -226,7 +258,7 @@ function AppContent() {
             onViewChange={handleViewChange}
             onSelectCarpark={handleSelectCarpark}
             isPremium={isPremium}
-            user={user}
+            user={user || undefined}
             onUpdateUser={updateUser}
             userLocation={userLocation}
             onGetUserLocation={getUserLocation}
@@ -314,9 +346,5 @@ function AppContent() {
 }
 
 export default function App() {
-  return (
-    <AppProviders>
-      <AppContent />
-    </AppProviders>
-  );
+  return <AppContent />;
 }

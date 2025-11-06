@@ -326,13 +326,13 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
       const actualDrivingTime = carpark.drivingTime !== undefined ? carpark.drivingTime : null;
 
       // Calculate availability and total for selected lot types only
-      const selectedLotData = carpark.lotDetails?.filter(lot => 
+      const selectedLotData = carpark.lotDetails?.filter(lot =>
         selectedLotTypes.includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0
       ) || [];
-      
+
       const selectedAvailable = selectedLotData.reduce((sum, lot) => sum + lot.available_lots, 0);
       const selectedTotal = selectedLotData.reduce((sum, lot) => sum + (lot.total_lots || 0), 0);
-      
+
       // Determine marker color based on occupancy (filled percentage) of selected lot types
       const occupancyPercentage = selectedTotal > 0
         ? ((selectedTotal - selectedAvailable) / selectedTotal) * 100
@@ -430,36 +430,36 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
           </div>
           ` : ''}
           <div style="margin-bottom: 10px;">
-            ${carpark.lotDetails && carpark.lotDetails.length > 0 ? 
-              carpark.lotDetails.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0).map(lot => {
-                const getLotIcon = (lotType: string) => {
-                  switch (lotType) {
-                    case 'C': return '🚗';
-                    case 'Y': return '🏍️';
-                    case 'H': return '🚛';
-                    default: return '🚗';
-                  }
-                };
-                
-                const getLotBgColor = (lotType: string) => {
-                  switch (lotType) {
-                    case 'C': return 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
-                    case 'Y': return 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)';
-                    case 'H': return 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)';
-                    default: return 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
-                  }
-                };
-                
-                const getLotTextColor = (lotType: string) => {
-                  switch (lotType) {
-                    case 'C': return '#1e40af';
-                    case 'Y': return '#166534';
-                    case 'H': return '#c2410c';
-                    default: return '#1e40af';
-                  }
-                };
-                
-                return `
+            ${carpark.lotDetails && carpark.lotDetails.length > 0 ?
+          carpark.lotDetails.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0).map(lot => {
+            const getLotIcon = (lotType: string) => {
+              switch (lotType) {
+                case 'C': return '🚗';
+                case 'Y': return '🏍️';
+                case 'H': return '🚛';
+                default: return '🚗';
+              }
+            };
+
+            const getLotBgColor = (lotType: string) => {
+              switch (lotType) {
+                case 'C': return 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+                case 'Y': return 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)';
+                case 'H': return 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)';
+                default: return 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+              }
+            };
+
+            const getLotTextColor = (lotType: string) => {
+              switch (lotType) {
+                case 'C': return '#1e40af';
+                case 'Y': return '#166534';
+                case 'H': return '#c2410c';
+                default: return '#1e40af';
+              }
+            };
+
+            return `
                   <span style="
                     display: inline-flex;
                     align-items: center;
@@ -477,8 +477,8 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
                     ${getLotIcon(lot.lot_type)} ${lot.available_lots}/${lot.total_lots || 'N/A'}
                   </span>
                 `;
-              }).join('')
-              : `
+          }).join('')
+          : `
                 <span style="
                   display: inline-flex;
                   align-items: center;
@@ -494,7 +494,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
                   🚗 ${carpark.availableLots}/N/A
                 </span>
               `
-            }
+        }
             ${carpark.evLots > 0 ? `
               <div style="margin-top: 6px;">
                 <span style="
