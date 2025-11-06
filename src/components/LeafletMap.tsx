@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Carpark } from '../types';
+import { Carpark, getCarparkAvailableLots, getCarparkTotalLots } from '../types';
 import { getCarparkMapDisplayName } from '../utils/carpark';
 
 interface LeafletMapProps {
@@ -491,7 +491,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
                   font-weight: 600;
                   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
                 ">
-                  🚗 ${carpark.availableLots}/N/A
+                  🚗 ${getCarparkAvailableLots(carpark)}/${getCarparkTotalLots(carpark) || 'N/A'}
                 </span>
               `
         }
