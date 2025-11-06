@@ -26,6 +26,13 @@ export interface PredictionChartProps {
   predictions: EnhancedPrediction[];
   carparkName: string;
   totalLots?: number;
+  carpark?: {
+    lotDetails: Array<{
+      lot_type: string;
+      available_lots: number;
+      total_lots?: number;
+    }>;
+  };
   loading?: boolean;
   error?: string;
   onRetry?: () => void;
@@ -353,6 +360,7 @@ export function PredictionChart({
   predictions,
   carparkName,
   totalLots,
+  carpark,
   loading = false,
   error,
   onRetry,
@@ -361,6 +369,18 @@ export function PredictionChart({
   compact = false,
   chartType = 'area',
 }: PredictionChartProps) {
+  // Calculate car lot capacity from lot details
+  const carLotCapacity = useMemo(() => {
+    if (!carpark?.lotDetails) return totalLots;
+    
+    // Find car lot details (lot_type should be "C" for car lots)
+    const carLotDetail = carpark.lotDetails.find(detail => 
+      detail.lot_type === 'C' || detail.lot_type === 'Car' || detail.lot_type.toLowerCase().includes('car')
+    );
+    
+    return carLotDetail?.total_lots || totalLots;
+  }, [carpark?.lotDetails, totalLots]);
+
   // Transform data for chart
   const chartData = useMemo(() => {
     if (!predictions || predictions.length === 0) return [];
@@ -433,9 +453,9 @@ export function PredictionChart({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">24-Hour Forecast</h3>
-            {totalLots && (
+            {carLotCapacity && (
               <div className="text-sm text-muted-foreground">
-                Total: {totalLots} lots
+                Car Lots: {carLotCapacity} total
               </div>
             )}
           </div>
@@ -476,7 +496,7 @@ export function PredictionChart({
                 axisLine={false}
                 tickLine={false}
                 tick={{ fontSize: 12, fill: 'hsl(var(--foreground))' }}
-                domain={[0, totalLots || 'dataMax']}
+                domain={[0, carLotCapacity || 'dataMax']}
               />
 
               <ChartTooltip content={<CustomTooltip />} />
@@ -490,9 +510,9 @@ export function PredictionChart({
                 strokeWidth={1}
               />
 
-              {totalLots && (
+              {carLotCapacity && (
                 <ReferenceLine 
-                  y={totalLots * 0.8} 
+                  y={carLotCapacity * 0.8} 
                   stroke="hsl(var(--destructive))" 
                   strokeDasharray="5 5"
                   strokeOpacity={0.6}
@@ -562,16 +582,16 @@ export function PredictionChart({
             />
             
             {/* Reference lines for context */}
-            {totalLots && (
+            {carLotCapacity && (
               <>
                 <ReferenceLine
-                  y={totalLots * 0.8}
+                  y={carLotCapacity * 0.8}
                   stroke={STATUS_COLORS.good}
                   strokeDasharray="2 2"
                   strokeOpacity={0.5}
                 />
                 <ReferenceLine
-                  y={totalLots * 0.3}
+                  y={carLotCapacity * 0.3}
                   stroke={STATUS_COLORS.limited}
                   strokeDasharray="2 2"
                   strokeOpacity={0.5}

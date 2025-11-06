@@ -178,10 +178,7 @@ export class CarparkTransformer {
 
       const { lat, lng } = CoordinateTransformer.svy21ToWgs84(xCoord, yCoord);
 
-      // Parse total lots with validation
-      const totalLots = apiData.total_lots && !isNaN(Number(apiData.total_lots))
-        ? Number(apiData.total_lots)
-        : null;
+
 
       // Parse rates with validation
       const rate30min = apiData.current_rate_30min && !isNaN(Number(apiData.current_rate_30min))
@@ -214,7 +211,6 @@ export class CarparkTransformer {
         latitude: lat,
         longitude: lng,
         coordinates: { lat, lng },
-        totalLots,
         lotDetails,
         rates: {
           hourly: rate30min * 2, // Convert 30-min rate to hourly
@@ -227,8 +223,6 @@ export class CarparkTransformer {
         paymentMethods,
         car_park_type: apiData.car_park_type || '',
         type_of_parking_system: apiData.type_of_parking_system || '',
-        // Legacy field for backward compatibility
-        lot_type: apiData.lot_type || (lotDetails.length > 0 ? lotDetails[0].lot_type : ''),
       };
     } catch (error) {
       throw new Error(`Failed to transform carpark data for ${apiData.carpark_number}`);
@@ -240,25 +234,19 @@ export class CarparkTransformer {
    */
   static transformAvailability(apiData: CarparkAvailabilityApiResponse): {
     carparkId: string;
-    availableLots: number;
     lotDetails: CarparkLotDetails[];
   } {
     try {
-      let totalAvailable = 0;
       const lotDetails: CarparkLotDetails[] = [];
 
       // Handle new format with multiple lot types (availability API has available lots)
       if (apiData.lots && Array.isArray(apiData.lots)) {
         const availabilityLotDetails = this.parseLotDetails(apiData.lots, false);
-        availabilityLotDetails.forEach(lot => {
-          totalAvailable += lot.available_lots;
-          lotDetails.push(lot);
-        });
+        lotDetails.push(...availabilityLotDetails);
       } 
       // Handle legacy format for backward compatibility
       else if (apiData.lots_available) {
         const available = Number(apiData.lots_available) || 0;
-        totalAvailable = available;
         
         lotDetails.push({
           lot_type: 'C', // Default to 'C' for legacy data
@@ -268,13 +256,11 @@ export class CarparkTransformer {
 
       return {
         carparkId: apiData.carpark_number,
-        availableLots: totalAvailable,
         lotDetails,
       };
     } catch (error) {
       return {
         carparkId: apiData.carpark_number,
-        availableLots: 0,
         lotDetails: [],
       };
     }
@@ -297,11 +283,10 @@ export class CarparkTransformer {
       });
 
       // Create availability map for quick lookup
-      const availabilityMap = new Map<string, { availableLots: number; lotDetails: CarparkLotDetails[] }>();
+      const availabilityMap = new Map<string, { lotDetails: CarparkLotDetails[] }>();
       availabilityRecords.forEach((record) => {
         const transformed = this.transformAvailability(record);
         availabilityMap.set(transformed.carparkId, {
-          availableLots: transformed.availableLots,
           lotDetails: transformed.lotDetails,
         });
       });
@@ -317,7 +302,6 @@ export class CarparkTransformer {
           
           const carpark: Carpark = {
             ...transformedInfo,
-            availableLots: availabilityData?.availableLots || 0,
             lotDetails: this.mergeLotDetails(transformedInfo.lotDetails || [], availabilityData?.lotDetails || []),
             evLots: this.parseEvLots(info.ev_lot_location),
             availableEvLots: 0, // Would need separate API for real-time EV availability

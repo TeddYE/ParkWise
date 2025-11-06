@@ -1,5 +1,4 @@
 import { 
-  MapPin, 
   Car, 
   Zap, 
   Clock, 
@@ -12,7 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
-import { Carpark } from '@/types';
+import { Carpark, getCarparkTotalLots, getCarparkAvailableLots } from '@/types';
 import { getCarparkDisplayName } from '@/utils/carpark';
 import { cn } from '@/utils/cn';
 import { memo } from 'react';
@@ -64,16 +63,11 @@ export const CarparkInfo = memo(function CarparkInfo({
       .join(' ');
   };
 
-  const formatLotType = (lotType: string): string => {
-    const lotTypeMap: Record<string, string> = {
-      'C': 'Car',
-      'Y': 'Motorcycle', 
-      'H': 'Heavy Vehicle',
-    };
-    return lotTypeMap[lotType] || lotType;
-  };
 
-  const AvailabilityIcon = getAvailabilityIcon(carpark.availableLots, carpark.totalLots);
+
+  const totalLots = getCarparkTotalLots(carpark);
+  const availableLots = getCarparkAvailableLots(carpark);
+  const AvailabilityIcon = getAvailabilityIcon(availableLots, totalLots);
 
   return (
     <Card className={cn("w-full", className)} data-testid={testId}>
@@ -97,13 +91,13 @@ export const CarparkInfo = memo(function CarparkInfo({
             <div className="flex items-center gap-1">
               <AvailabilityIcon className={cn(
                 "w-4 h-4",
-                getAvailabilityColor(carpark.availableLots, carpark.totalLots)
+                getAvailabilityColor(availableLots, totalLots)
               )} />
               <span className={cn(
                 "text-xs font-medium",
-                getAvailabilityColor(carpark.availableLots, carpark.totalLots)
+                getAvailabilityColor(availableLots, totalLots)
               )}>
-                {carpark.availableLots}/{carpark.totalLots || 'N/A'}
+                {availableLots}/{totalLots || 'N/A'}
               </span>
             </div>
           </div>
@@ -114,24 +108,70 @@ export const CarparkInfo = memo(function CarparkInfo({
         {/* Availability Section */}
         {!compact && (
           <div>
-            <h4 className="font-medium mb-2 flex items-center gap-2">
+            <h4 className="font-medium mb-3 flex items-center gap-2">
               <Car className="w-4 h-4" />
-              Availability
+              Breakdown by Lot Type
             </h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Available Lots</p>
-                <p className={cn("text-lg font-semibold", getAvailabilityColor(carpark.availableLots, carpark.totalLots))}>
-                  {carpark.availableLots} / {carpark.totalLots || 'N/A'}
-                </p>
+            
+            {/* Show breakdown by lot type if available */}
+            {carpark.lotDetails && carpark.lotDetails.length > 0 ? (
+              <div className="space-y-3">
+                {carpark.lotDetails
+                  .filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0)
+                  .map((lot) => {
+                    const getLotIcon = (lotType: string) => {
+                      switch (lotType) {
+                        case 'C': return <Car className="w-4 h-4" />;
+                        case 'Y': return <div className="w-4 h-4 flex items-center justify-center text-xs font-bold">M</div>;
+                        case 'H': return <div className="w-4 h-4 flex items-center justify-center text-xs font-bold">H</div>;
+                        default: return <Car className="w-4 h-4" />;
+                      }
+                    };
+
+                    const getLotTypeName = (lotType: string) => {
+                      switch (lotType) {
+                        case 'C': return 'Car Lots';
+                        case 'Y': return 'Motorcycle Lots';
+                        case 'H': return 'Heavy Vehicle Lots';
+                        default: return 'Lots';
+                      }
+                    };
+
+                    return (
+                      <div key={lot.lot_type} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          {getLotIcon(lot.lot_type)}
+                          <span className="font-medium">{getLotTypeName(lot.lot_type)}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className={cn("text-lg font-semibold", getAvailabilityColor(lot.available_lots, lot.total_lots || null))}>
+                            {lot.available_lots}/{lot.total_lots || 'N/A'}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            available/total
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <p className={cn("text-sm font-medium", getAvailabilityColor(carpark.availableLots, carpark.totalLots))}>
-                  {getAvailabilityStatus(carpark.availableLots, carpark.totalLots)}
-                </p>
+            ) : (
+              // Fallback to aggregated view if no lot details
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Available Lots</p>
+                  <p className={cn("text-lg font-semibold", getAvailabilityColor(availableLots, totalLots))}>
+                    {availableLots} / {totalLots || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <p className={cn("text-sm font-medium", getAvailabilityColor(availableLots, totalLots))}>
+                    {getAvailabilityStatus(availableLots, totalLots)}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -213,12 +253,7 @@ export const CarparkInfo = memo(function CarparkInfo({
                   </Badge>
                 </div>
 
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Lot Type</p>
-                  <Badge variant="outline">
-                    {formatLotType(carpark.lot_type)}
-                  </Badge>
-                </div>
+
 
                 {carpark.type_of_parking_system && (
                   <div className="sm:col-span-2">

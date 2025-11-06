@@ -237,10 +237,41 @@ export class PredictionService {
     // Calculate availability percentages and statistics
     const availabilities = rawPredictions.map(p => p.predicted_lots_available);
     const avgAvailability = availabilities.reduce((sum, val) => sum + val, 0) / availabilities.length;
+    const maxPredicted = Math.max(...availabilities);
+
+    // Log basic info for monitoring
+    if (!totalLots) {
+      console.log('Using fallback percentage calculation - totalLots not available');
+    }
 
     return rawPredictions.map((prediction) => {
       const availableSlots = Math.max(0, prediction.predicted_lots_available);
-      const percentage = totalLots ? Math.min(100, (availableSlots / totalLots) * 100) : 0;
+      // Calculate percentage - if totalLots is not available, estimate from max predicted value
+      let percentage: number;
+      if (totalLots && totalLots > 0) {
+        percentage = Math.min(100, (availableSlots / totalLots) * 100);
+      } else {
+        // Fallback: when totalLots is unknown, use a more conservative approach
+        // Base percentage on relative availability within the prediction set
+        const minPredicted = Math.min(...availabilities);
+        const range = maxPredicted - minPredicted;
+        
+        if (range > 0) {
+          // Scale based on position within the range (0-100%)
+          percentage = ((availableSlots - minPredicted) / range) * 100;
+        } else {
+          // All predictions are the same, assume good availability
+          percentage = 75;
+        }
+        
+        // Ensure reasonable bounds
+        percentage = Math.max(10, Math.min(95, percentage));
+        
+        // Minimal logging for fallback calculation
+        if (availableSlots === maxPredicted) {
+          console.log(`Fallback calculation: ${availableSlots} lots = ${Math.round(percentage)}%`);
+        }
+      }
 
       // Determine status based on availability percentage
       let status: EnhancedPrediction['status'];

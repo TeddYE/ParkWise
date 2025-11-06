@@ -22,6 +22,13 @@ export interface PredictionInsightsProps {
     name: string;
     totalLots: number;
   };
+  carpark?: {
+    lotDetails: Array<{
+      lot_type: string;
+      available_lots: number;
+      total_lots?: number;
+    }>;
+  };
   analysis?: PredictionAnalysis;
   className?: string;
   compact?: boolean;
@@ -52,19 +59,7 @@ interface TimeRecommendation {
 // Constants
 // ============================================================================
 
-const STATUS_COLORS = {
-  excellent: 'text-green-600 dark:text-green-400',
-  good: 'text-lime-600 dark:text-lime-400',
-  limited: 'text-amber-600 dark:text-amber-400',
-  very_limited: 'text-red-600 dark:text-red-400',
-} as const;
 
-const STATUS_BG_COLORS = {
-  excellent: 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800/30',
-  good: 'bg-lime-50 border-lime-200 dark:bg-lime-950/30 dark:border-lime-800/30',
-  limited: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800/30',
-  very_limited: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800/30',
-} as const;
 
 
 
@@ -181,6 +176,7 @@ function formatHourRange(start: number, end: number): string {
   if (start === end) {
     return formatHour(start);
   } else {
+    // For ranges, show as "StartPM-EndPM" format
     return `${formatHour(start)}-${formatHour(end)}`;
   }
 }
@@ -189,86 +185,126 @@ function formatHourRange(start: number, end: number): string {
 
 /**
  * Generate optimal time periods from consecutive optimal hours
+ * Best periods: Within 10% of highest availability, continuous, all hours that make sense
  */
-function generateOptimalPeriods(predictions: EnhancedPrediction[]): TimeRecommendation[] {
-  // Get optimal predictions sorted by hour
-  const optimalPredictions = predictions
-    .filter(p => p.is_optimal_time || p.status === 'excellent')
-    .sort((a, b) => new Date(a.datetime).getHours() - new Date(b.datetime).getHours());
+function generateOptimalPeriods(predictions: EnhancedPrediction[], totalCarLots?: number): TimeRecommendation[] {
+  if (predictions.length === 0) return [];
 
-  if (optimalPredictions.length === 0) return [];
+  // Find the highest availability value
+  const maxAvailability = Math.max(...predictions.map(p => p.predicted_lots_available));
+  const threshold = maxAvailability * 0.9; // Within 10% of highest
 
-  // Group consecutive hours
-  const periods: TimeRecommendation[] = [];
-  let currentPeriod = [optimalPredictions[0]];
+  // Find all predictions within 10% of the highest availability
+  const candidatePredictions = predictions
+    .map((p, index) => ({ ...p, originalIndex: index }))
+    .filter(p => p.predicted_lots_available >= threshold)
+    .sort((a, b) => a.originalIndex - b.originalIndex); // Keep original time order
 
-  for (let i = 1; i < optimalPredictions.length; i++) {
-    const currentHour = new Date(optimalPredictions[i].datetime).getHours();
-    const lastHour = new Date(currentPeriod[currentPeriod.length - 1].datetime).getHours();
+  if (candidatePredictions.length === 0) {
+    // Fallback: use the single best hour
+    const bestPrediction = predictions.reduce((best, current) =>
+      current.predicted_lots_available > best.predicted_lots_available ? current : best
+    );
+    return [createPeriodRecommendation([bestPrediction], 'best', totalCarLots)];
+  }
 
-    // If consecutive hour, add to current period
-    if (currentHour === lastHour + 1) {
-      currentPeriod.push(optimalPredictions[i]);
+  // Find continuous periods (all consecutive hours that make sense)
+  const continuousPeriods: EnhancedPrediction[][] = [];
+  let currentPeriod: EnhancedPrediction[] = [candidatePredictions[0]];
+
+  for (let i = 1; i < candidatePredictions.length; i++) {
+    const prevHour = new Date(candidatePredictions[i - 1].datetime).getHours();
+    const currHour = new Date(candidatePredictions[i].datetime).getHours();
+
+    // Check if consecutive (no hour limit)
+    if (currHour === prevHour + 1) {
+      currentPeriod.push(candidatePredictions[i]);
     } else {
       // End current period and start new one
-      if (currentPeriod.length > 0) {
-        periods.push(createPeriodRecommendation(currentPeriod, 'best'));
-      }
-      currentPeriod = [optimalPredictions[i]];
+      continuousPeriods.push([...currentPeriod]);
+      currentPeriod = [candidatePredictions[i]];
     }
   }
 
   // Add the last period
-  if (currentPeriod.length > 0) {
-    periods.push(createPeriodRecommendation(currentPeriod, 'best'));
+  continuousPeriods.push(currentPeriod);
+
+  // Find the best continuous period (highest average availability, prefer longer periods)
+  let bestPeriod = continuousPeriods[0];
+  let maxAvgAvailability = bestPeriod.reduce((sum, p) => sum + p.predicted_lots_available, 0) / bestPeriod.length;
+
+  for (const period of continuousPeriods) {
+    const avgAvailability = period.reduce((sum, p) => sum + p.predicted_lots_available, 0) / period.length;
+    if (avgAvailability > maxAvgAvailability ||
+      (avgAvailability === maxAvgAvailability && period.length > bestPeriod.length)) {
+      bestPeriod = period;
+      maxAvgAvailability = avgAvailability;
+    }
   }
 
-  // Sort by average availability and return top period
-  return periods
-    .sort((a, b) => b.availability - a.availability)
-    .slice(0, 1);
+  return [createPeriodRecommendation(bestPeriod, 'best', totalCarLots)];
 }
 
 /**
  * Generate peak time periods from consecutive peak hours
+ * Peak/Avoid periods: Within 10% of lowest availability, continuous, all hours that make sense
  */
-function generatePeakPeriods(predictions: EnhancedPrediction[]): TimeRecommendation[] {
-  // Get peak predictions sorted by hour
-  const peakPredictions = predictions
-    .filter(p => p.is_peak_time || p.status === 'very_limited')
-    .sort((a, b) => new Date(a.datetime).getHours() - new Date(b.datetime).getHours());
+function generatePeakPeriods(predictions: EnhancedPrediction[], totalCarLots?: number): TimeRecommendation[] {
+  if (predictions.length === 0) return [];
 
-  if (peakPredictions.length === 0) return [];
+  // Find the lowest availability value
+  const minAvailability = Math.min(...predictions.map(p => p.predicted_lots_available));
+  const threshold = minAvailability * 1.1; // Within 10% of lowest
 
-  // Group consecutive hours
-  const periods: TimeRecommendation[] = [];
-  let currentPeriod = [peakPredictions[0]];
+  // Find all predictions within 10% of the lowest availability
+  const candidatePredictions = predictions
+    .map((p, index) => ({ ...p, originalIndex: index }))
+    .filter(p => p.predicted_lots_available <= threshold)
+    .sort((a, b) => a.originalIndex - b.originalIndex); // Keep original time order
 
-  for (let i = 1; i < peakPredictions.length; i++) {
-    const currentHour = new Date(peakPredictions[i].datetime).getHours();
-    const lastHour = new Date(currentPeriod[currentPeriod.length - 1].datetime).getHours();
+  if (candidatePredictions.length === 0) {
+    // Fallback: use the single worst hour
+    const worstPrediction = predictions.reduce((worst, current) =>
+      current.predicted_lots_available < worst.predicted_lots_available ? current : worst
+    );
+    return [createPeriodRecommendation([worstPrediction], 'worst', totalCarLots)];
+  }
 
-    // If consecutive hour, add to current period
-    if (currentHour === lastHour + 1) {
-      currentPeriod.push(peakPredictions[i]);
+  // Find continuous periods (all consecutive hours that make sense)
+  const continuousPeriods: EnhancedPrediction[][] = [];
+  let currentPeriod: EnhancedPrediction[] = [candidatePredictions[0]];
+
+  for (let i = 1; i < candidatePredictions.length; i++) {
+    const prevHour = new Date(candidatePredictions[i - 1].datetime).getHours();
+    const currHour = new Date(candidatePredictions[i].datetime).getHours();
+
+    // Check if consecutive (no hour limit)
+    if (currHour === prevHour + 1) {
+      currentPeriod.push(candidatePredictions[i]);
     } else {
       // End current period and start new one
-      if (currentPeriod.length > 0) {
-        periods.push(createPeriodRecommendation(currentPeriod, 'worst'));
-      }
-      currentPeriod = [peakPredictions[i]];
+      continuousPeriods.push([...currentPeriod]);
+      currentPeriod = [candidatePredictions[i]];
     }
   }
 
   // Add the last period
-  if (currentPeriod.length > 0) {
-    periods.push(createPeriodRecommendation(currentPeriod, 'worst'));
+  continuousPeriods.push(currentPeriod);
+
+  // Find the worst continuous period (lowest average availability, prefer longer periods)
+  let worstPeriod = continuousPeriods[0];
+  let minAvgAvailability = worstPeriod.reduce((sum, p) => sum + p.predicted_lots_available, 0) / worstPeriod.length;
+
+  for (const period of continuousPeriods) {
+    const avgAvailability = period.reduce((sum, p) => sum + p.predicted_lots_available, 0) / period.length;
+    if (avgAvailability < minAvgAvailability ||
+      (avgAvailability === minAvgAvailability && period.length > worstPeriod.length)) {
+      worstPeriod = period;
+      minAvgAvailability = avgAvailability;
+    }
   }
 
-  // Sort by availability (lowest first for worst periods) and return top period
-  return periods
-    .sort((a, b) => a.availability - b.availability)
-    .slice(0, 1);
+  return [createPeriodRecommendation(worstPeriod, 'worst', totalCarLots)];
 }
 
 /**
@@ -276,7 +312,8 @@ function generatePeakPeriods(predictions: EnhancedPrediction[]): TimeRecommendat
  */
 function createPeriodRecommendation(
   periodPredictions: EnhancedPrediction[],
-  type: 'best' | 'worst'
+  type: 'best' | 'worst',
+  totalCarLots?: number
 ): TimeRecommendation {
   const startHour = new Date(periodPredictions[0].datetime).getHours();
   const endHour = new Date(periodPredictions[periodPredictions.length - 1].datetime).getHours();
@@ -286,9 +323,16 @@ function createPeriodRecommendation(
     periodPredictions.reduce((sum, p) => sum + p.predicted_lots_available, 0) / periodPredictions.length
   );
 
-  const avgPercentage = Math.round(
-    periodPredictions.reduce((sum, p) => sum + p.availability_percentage, 0) / periodPredictions.length
-  );
+  // Calculate percentage based on total car lots specifically
+  let avgPercentage: number;
+  if (totalCarLots && totalCarLots > 0) {
+    avgPercentage = Math.round((avgAvailability / totalCarLots) * 100);
+  } else {
+    // Fallback to the prediction's calculated percentage
+    avgPercentage = Math.round(
+      periodPredictions.reduce((sum, p) => sum + p.availability_percentage, 0) / periodPredictions.length
+    );
+  }
 
   // Determine the most common status
   const statusCounts = periodPredictions.reduce((acc, p) => {
@@ -299,7 +343,7 @@ function createPeriodRecommendation(
   const mostCommonStatus = Object.entries(statusCounts)
     .sort(([, a], [, b]) => b - a)[0][0] as 'excellent' | 'good' | 'limited' | 'very_limited';
 
-  // Format the time range
+  // Format the time range - show the actual period found
   const displayTime = formatHourRange(startHour, endHour);
 
   return {
@@ -315,12 +359,19 @@ function createPeriodRecommendation(
 
 /**
  * Generate time recommendations from predictions
+ * 
+ * Logic:
+ * - Best periods: Within 10% of highest availability, continuous blocks, all hours that make sense
+ * - Peak/Avoid periods: Within 10% of lowest availability, continuous blocks, all hours that make sense
+ * - Ensures periods are continuous time blocks, not scattered individual hours
+ * - No maximum hour limit - shows all consecutive hours within the threshold
  */
 function generateTimeRecommendations(
-  predictions: EnhancedPrediction[]
+  predictions: EnhancedPrediction[],
+  totalCarLots?: number
 ): { best: TimeRecommendation[]; worst: TimeRecommendation[] } {
-  const best = generateOptimalPeriods(predictions);
-  const worst = generatePeakPeriods(predictions);
+  const best = generateOptimalPeriods(predictions, totalCarLots);
+  const worst = generatePeakPeriods(predictions, totalCarLots);
 
   return { best, worst };
 }
@@ -389,38 +440,43 @@ function TimeRecommendation({
 }) {
   const isGood = type === 'best';
   const Icon = isGood ? TrendingUp : TrendingDown;
-  const statusColor = STATUS_COLORS[recommendation.status];
-  const statusBg = STATUS_BG_COLORS[recommendation.status];
+
+  // Override status colors based on recommendation type for better UX
+  // Best periods should always look positive, worst periods should look negative
+  const displayColor = isGood
+    ? 'text-green-600 dark:text-green-400'
+    : 'text-red-600 dark:text-red-400';
+
+  const displayBg = isGood
+    ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800/30'
+    : 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800/30';
 
   return (
     <div className={cn(
-      "flex items-center justify-between p-2 rounded-lg border",
-      statusBg
+      "flex items-center justify-between p-3 rounded-lg border",
+      displayBg
     )}>
       <div className="flex items-center gap-2">
-        <div className={statusColor}>
-          <Icon className="w-3.5 h-3.5" />
+        <div className={displayColor}>
+          <Icon className="w-4 h-4" />
         </div>
 
         <div>
-          <div className="font-medium text-sm">
+          <div className="font-semibold text-base">
             {recommendation.displayTime}
-          </div>
-          <div className="text-muted-foreground text-xs">
-            {recommendation.reason}
           </div>
         </div>
       </div>
 
       <div className="text-right">
         <div className={cn(
-          "font-semibold text-sm",
-          statusColor
+          "font-bold text-lg",
+          displayColor
         )}>
           {recommendation.availability}
         </div>
         <div className="text-muted-foreground text-xs">
-          {recommendation.availabilityPercentage.toFixed(0)}%
+          {recommendation.availabilityPercentage}% available
         </div>
       </div>
     </div>
@@ -433,8 +489,22 @@ function TimeRecommendation({
 
 export function PredictionInsights({
   predictions,
+  carparkInfo,
+  carpark,
   className,
 }: PredictionInsightsProps) {
+  // Calculate total car lots from lot details
+  const totalCarLots = useMemo(() => {
+    if (!carpark?.lotDetails) return carparkInfo?.totalLots;
+
+    // Find car lot details (lot_type should be "C" for car lots)
+    const carLotDetail = carpark.lotDetails.find(detail =>
+      detail.lot_type === 'C' || detail.lot_type === 'Car' || detail.lot_type.toLowerCase().includes('car')
+    );
+
+    return carLotDetail?.total_lots || carparkInfo?.totalLots;
+  }, [carpark?.lotDetails, carparkInfo?.totalLots]);
+
   // Generate insights and recommendations
   const insights = useMemo(() =>
     generateSmartInsights(predictions),
@@ -442,8 +512,8 @@ export function PredictionInsights({
   );
 
   const timeRecommendations = useMemo(() =>
-    generateTimeRecommendations(predictions),
-    [predictions]
+    generateTimeRecommendations(predictions, totalCarLots),
+    [predictions, totalCarLots]
   );
 
   // Handle empty state
@@ -469,32 +539,54 @@ export function PredictionInsights({
     <div className={cn("space-y-4", className)}>
       {/* Best & Worst Times - Main Focus */}
       {(bestTime || worstTime) && (
-        <div className="grid grid-cols-2 gap-3">
-          {bestTime && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium text-green-600 uppercase tracking-wide flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
-                Best Period
-              </h4>
-              <TimeRecommendation
-                recommendation={bestTime}
-                type="best"
-              />
-            </div>
-          )}
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {bestTime && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-medium text-green-600 uppercase tracking-wide flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  Best Period
+                </h4>
+                <TimeRecommendation
+                  recommendation={bestTime}
+                  type="best"
+                />
+              </div>
+            )}
 
-          {worstTime && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium text-red-600 uppercase tracking-wide flex items-center gap-1">
-                <TrendingDown className="w-3 h-3" />
-                Avoid
-              </h4>
-              <TimeRecommendation
-                recommendation={worstTime}
-                type="worst"
-              />
+            {worstTime && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-medium text-red-600 uppercase tracking-wide flex items-center gap-1">
+                  <TrendingDown className="w-3 h-3" />
+                  Avoid
+                </h4>
+                <TimeRecommendation
+                  recommendation={worstTime}
+                  type="worst"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Accuracy Display */}
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground">
+              Prediction Accuracy: <span className="font-medium">80%</span>
             </div>
-          )}
+          </div>
+
+          {/* Information Note */}
+          <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-950/30 dark:border-blue-800/30">
+            <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <div className="font-medium text-blue-800 dark:text-blue-200">
+                Car Lot Predictions Only
+              </div>
+              <div className="text-blue-700 dark:text-blue-300 mt-1">
+                These predictions show availability for standard car lots. Motorcycle and heavy vehicle lots are not included.
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

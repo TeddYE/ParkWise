@@ -3,7 +3,6 @@ import {
   useRef,
   useCallback,
   useEffect,
-  memo,
   useMemo,
 } from "react";
 import {
@@ -34,10 +33,9 @@ import {
 } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
-import { Slider } from "./ui/slider";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
-import { Carpark, User } from "../types";
+import { Carpark, User, getCarparkAvailableLots, getCarparkTotalLots } from "../types";
 import { LeafletMap } from "./LeafletMap";
 
 import { getCarparkDisplayName } from "../utils/carpark";
@@ -48,9 +46,7 @@ import { toast } from "sonner";
 import { AuthService } from "../services/authService";
 import { AdPlaceholder } from "./ui/AdPlaceholder";
 
-const MAX_MAP_CARPARKS = 30;
-const LOW_ZOOM_THRESHOLD = 13; // Below this = zoomed out, above = zoomed in
-const HIGH_AVAILABILITY_THRESHOLD = 0.3; // 30% availability
+const MAX_MAP_CARPARKS = 60;
 
 interface MapViewProps {
   onViewChange: (view: string) => void;
@@ -59,7 +55,6 @@ interface MapViewProps {
   user?: User;
   onUpdateUser?: (user: User) => void;
   userLocation: { lat: number; lng: number } | null;
-  onGetUserLocation: () => void;
   isLoadingLocation: boolean;
   carparks: Carpark[];
   isLoadingCarparks: boolean;
@@ -73,16 +68,13 @@ export function MapView({
   user,
   onUpdateUser,
   userLocation,
-  onGetUserLocation,
   isLoadingLocation,
   carparks,
   isLoadingCarparks,
   onRefreshCarparks,
 }: MapViewProps) {
-  const [searchRadius, setSearchRadius] = useState([5]);
-  const [selectedCarpark, setSelectedCarpark] = useState<
-    string | null
-  >(null);
+  const [searchRadius] = useState([5]);
+  const [selectedCarpark, setSelectedCarpark] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [visibleCount, setVisibleCount] = useState(5);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -92,7 +84,6 @@ export function MapView({
     east: number;
     west: number;
   } | null>(null);
-  const [currentZoom, setCurrentZoom] = useState<number>(13);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -134,7 +125,7 @@ export function MapView({
       if (isPostalCode(searchQuery)) {
         console.log('Searching for postal code:', searchQuery);
         const result = await geocodePostalCode(searchQuery);
-        
+
         if (result.error) {
           toast.error(result.error);
           setIsSearching(false);
@@ -153,7 +144,7 @@ export function MapView({
         // General search (address, place name, etc.)
         console.log('Searching for location:', searchQuery);
         const result = await geocodeSearch(searchQuery);
-        
+
         if (result.error) {
           toast.error(result.error);
           setIsSearching(false);
@@ -232,7 +223,7 @@ export function MapView({
   const uniqueLotTypes = useMemo(() => Array.from(
     new Set(
       carparks
-        .flatMap((cp) => cp.lotDetails?.map(lot => lot.lot_type) || [cp.lot_type].filter(Boolean))
+        .flatMap((cp) => cp.lotDetails?.map(lot => lot.lot_type) || [])
         .filter((type) => type && type.trim() !== "" && ['C', 'Y', 'H'].includes(type))
     )
   ).sort(), [carparks]);
@@ -306,7 +297,7 @@ export function MapView({
   };
 
   // Filter carparks by search query or map bounds
-  const carparksInBounds = (() => {
+  const carparksInBounds = useMemo(() => {
     let filtered = carparks;
 
     // If there's a search location (postal code or address search)
@@ -325,7 +316,7 @@ export function MapView({
         }))
         .filter((carpark) => carpark.searchDistance <= radius)
         .sort((a, b) => a.searchDistance - b.searchDistance);
-    } 
+    }
     // If there's a text search query (not postal code, not geocoded yet)
     else if (searchQuery.trim() && !isPostalCode(searchQuery)) {
       // Filter by address text match
@@ -357,11 +348,8 @@ export function MapView({
             .filter(lot => lot.total_lots && lot.total_lots > 0)
             .map(lot => lot.lot_type);
           return selectedLotTypes.some(selectedType => availableLotTypes.includes(selectedType));
-        } else {
-          // Fallback to legacy lot_type field
-          const carparkLotTypes = [carpark.lot_type].filter(Boolean);
-          return selectedLotTypes.some(selectedType => carparkLotTypes.includes(selectedType));
         }
+        return false;
       });
     }
 
@@ -388,10 +376,19 @@ export function MapView({
       );
     }
 
-
-
     return filtered;
-  })();
+  }, [
+    carparks,
+    searchLocation,
+    searchRadius,
+    searchQuery,
+    mapBounds,
+    selectedLotTypes,
+    selectedCarparkTypes,
+    selectedPaymentMethods,
+    showFavoritesOnly,
+    user?.favoriteCarparks
+  ]);
 
   /**
    * Smart carpark filtering for map display
@@ -400,93 +397,62 @@ export function MapView({
    * 3. Sorts by distance from center (closest to center first)
    * 4. Limits to MAX_MAP_CARPARKS
    */
-  const getCarparksForMap = useCallback((): Carpark[] => {
-    if (!mapBounds) return [];
-    
-    // Calculate map center
-    const centerLat = (mapBounds.north + mapBounds.south) / 2;
-    const centerLng = (mapBounds.east + mapBounds.west) / 2;
+  const carparksForMap = useMemo((): Carpark[] => {
+    if (!mapBounds || carparksInBounds.length === 0) return [];
 
-    // Calculate distance from center and assign priority scores
-    const carparksWithPriority = carparksInBounds.map((carpark) => {
-      // Use Haversine formula to calculate distance from map center
-      const R = 6371; // Earth's radius in km
-      const dLat = ((carpark.latitude - centerLat) * Math.PI) / 180;
-      const dLng = ((carpark.longitude - centerLng) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((centerLat * Math.PI) / 180) *
-          Math.cos((carpark.latitude * Math.PI) / 180) *
-          Math.sin(dLng / 2) *
-          Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const distanceFromCenter = R * c;
+    // If we have fewer carparks than the limit, return all
+    if (carparksInBounds.length <= MAX_MAP_CARPARKS) {
+      return carparksInBounds;
+    }
 
-      // Calculate priority score (higher = more likely to be shown)
-      let priorityScore = 0;
+    // For better distribution, divide the map into a grid and select carparks from each cell
+    const gridSize = Math.ceil(Math.sqrt(MAX_MAP_CARPARKS)); // e.g., 6x6 grid for 30 carparks
+    const latStep = (mapBounds.north - mapBounds.south) / gridSize;
+    const lngStep = (mapBounds.east - mapBounds.west) / gridSize;
 
-      // Priority 1: If user searched for this specific carpark (highest priority)
-      if (searchQuery && searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const nameMatch = carpark.name?.toLowerCase().includes(query);
-        const addressMatch = carpark.address?.toLowerCase().includes(query);
-        const idMatch = carpark.id.toLowerCase().includes(query);
-        
-        if (nameMatch || addressMatch || idMatch) {
-          priorityScore += 1000; // Very high priority
-        }
+    const selectedCarparks: Carpark[] = [];
+    const carparksPerCell = Math.ceil(MAX_MAP_CARPARKS / (gridSize * gridSize));
+
+    // Create grid cells and select carparks from each
+    for (let i = 0; i < gridSize && selectedCarparks.length < MAX_MAP_CARPARKS; i++) {
+      for (let j = 0; j < gridSize && selectedCarparks.length < MAX_MAP_CARPARKS; j++) {
+        const cellSouth = mapBounds.south + (i * latStep);
+        const cellNorth = mapBounds.south + ((i + 1) * latStep);
+        const cellWest = mapBounds.west + (j * lngStep);
+        const cellEast = mapBounds.west + ((j + 1) * lngStep);
+
+        // Find carparks in this cell
+        const cellCarparks = carparksInBounds.filter(carpark =>
+          carpark.latitude >= cellSouth &&
+          carpark.latitude < cellNorth &&
+          carpark.longitude >= cellWest &&
+          carpark.longitude < cellEast
+        );
+
+        // Select the best carparks from this cell (by availability)
+        const sortedCellCarparks = cellCarparks
+          .sort((a, b) => getCarparkAvailableLots(b) - getCarparkAvailableLots(a))
+          .slice(0, carparksPerCell);
+
+        selectedCarparks.push(...sortedCellCarparks);
       }
+    }
 
-      // Priority 2: If user searched for postal code, nearest 5 get high priority
-      if (searchLocation && !searchQuery.includes(' ')) {
-        // Add high priority for the 5 closest to search location
-        const searchRank = carparksInBounds
-          .map(cp => {
-            const cpDLat = ((cp.latitude - searchLocation.lat) * Math.PI) / 180;
-            const cpDLng = ((cp.longitude - searchLocation.lng) * Math.PI) / 180;
-            const cpA =
-              Math.sin(cpDLat / 2) * Math.sin(cpDLat / 2) +
-              Math.cos((searchLocation.lat * Math.PI) / 180) *
-                Math.cos((cp.latitude * Math.PI) / 180) *
-                Math.sin(cpDLng / 2) *
-                Math.sin(cpDLng / 2);
-            const cpC = 2 * Math.atan2(Math.sqrt(cpA), Math.sqrt(1 - cpA));
-            return { id: cp.id, distance: R * cpC };
-          })
-          .sort((a, b) => a.distance - b.distance)
-          .findIndex(cp => cp.id === carpark.id);
+    // If we still have space and there are unselected carparks, fill with the best remaining ones
+    if (selectedCarparks.length < MAX_MAP_CARPARKS) {
+      const selectedIds = new Set(selectedCarparks.map(cp => cp.id));
+      const remainingCarparks = carparksInBounds
+        .filter(cp => !selectedIds.has(cp.id))
+        .sort((a, b) => getCarparkAvailableLots(b) - getCarparkAvailableLots(a))
+        .slice(0, MAX_MAP_CARPARKS - selectedCarparks.length);
 
-        if (searchRank < 5) {
-          priorityScore += 500 - (searchRank * 50); // Top 5 get 500, 450, 400, 350, 300
-        }
-      }
+      selectedCarparks.push(...remainingCarparks);
+    }
 
-      // Priority 3: Closer to center gets higher priority (inverse distance)
-      const maxDistance = 10; // km
-      const distancePriority = Math.max(0, (maxDistance - distanceFromCenter) / maxDistance * 100);
-      priorityScore += distancePriority;
+    return selectedCarparks.slice(0, MAX_MAP_CARPARKS);
+  }, [carparksInBounds, mapBounds]);
 
-      // Add some randomization to avoid always showing the same carparks
-      const randomBonus = Math.random() * 50;
-      priorityScore += randomBonus;
 
-      return {
-        ...carpark,
-        distanceFromCenter,
-        priorityScore,
-      };
-    });
-
-    // Sort by priority score (highest first)
-    carparksWithPriority.sort((a, b) => b.priorityScore - a.priorityScore);
-
-    // Limit to MAX_MAP_CARPARKS
-    return carparksWithPriority.slice(0, MAX_MAP_CARPARKS);
-  }, [carparksInBounds, mapBounds, searchQuery, searchLocation]);
-
-  const carparksForMap = getCarparksForMap();
-  const hasMoreCarparks =
-    carparksInBounds.length > carparksForMap.length;
 
   // Reset visible count when carparks change
   useEffect(() => {
@@ -508,10 +474,7 @@ export function MapView({
     [],
   );
 
-  // Handle zoom change
-  const handleZoomChange = useCallback((zoom: number) => {
-    setCurrentZoom(zoom);
-  }, []);
+
 
   // Infinite scroll handler
   const handleScroll = useCallback(() => {
@@ -644,121 +607,121 @@ export function MapView({
             <div className="space-y-6 p-4 bg-gradient-to-br from-background to-muted/50 rounded-xl border shadow-sm">
               {/* Filters */}
               <div className="space-y-4">
-                  {/* Lot Type Filter - Premium Only */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                        Lot Type
-                        {!isPremium && <Badge variant="secondary" className="text-xs">Premium</Badge>}
-                      </label>
-                      {selectedLotTypes.length !== 3 && isPremium && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => setSelectedLotTypes(['C', 'Y', 'H'])}
-                        >
-                          Select All
-                        </Button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 gap-1">
-                      {uniqueLotTypes.map((lotType) => (
-                        <div key={lotType} className="flex items-center space-x-2 p-1 rounded hover:bg-muted/30">
-                          <Checkbox
-                            id={`lot-${lotType}`}
-                            checked={selectedLotTypes.includes(lotType)}
-                            onCheckedChange={() => {
-                              if (!isPremium) {
-                                onViewChange('pricing');
-                                return;
-                              }
-                              toggleLotType(lotType);
-                            }}
-                          />
-                          <Label
-                            htmlFor={`lot-${lotType}`}
-                            className="text-xs cursor-pointer flex-1"
-                          >
-                            {formatLotType(lotType)}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
+                {/* Lot Type Filter - Premium Only */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                      Lot Type
+                      {!isPremium && <Badge variant="secondary" className="text-xs">Premium</Badge>}
+                    </label>
+                    {selectedLotTypes.length !== 3 && isPremium && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setSelectedLotTypes(['C', 'Y', 'H'])}
+                      >
+                        Select All
+                      </Button>
+                    )}
                   </div>
-
-                  {/* Carpark Type Filter */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Carpark Type
-                      </label>
-                      {selectedCarparkTypes.length > 0 && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => setSelectedCarparkTypes([])}
+                  <div className="grid grid-cols-1 gap-1">
+                    {uniqueLotTypes.map((lotType) => (
+                      <div key={lotType} className="flex items-center space-x-2 p-1 rounded hover:bg-muted/30">
+                        <Checkbox
+                          id={`lot-${lotType}`}
+                          checked={selectedLotTypes.includes(lotType)}
+                          onCheckedChange={() => {
+                            if (!isPremium) {
+                              onViewChange('pricing');
+                              return;
+                            }
+                            toggleLotType(lotType);
+                          }}
+                        />
+                        <Label
+                          htmlFor={`lot-${lotType}`}
+                          className="text-xs cursor-pointer flex-1"
                         >
-                          Clear
-                        </Button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto">
-                      {uniqueCarparkTypes.map((carparkType) => (
-                        <div key={carparkType} className="flex items-center space-x-2 p-1 rounded hover:bg-muted/30">
-                          <Checkbox
-                            id={`carpark-${carparkType}`}
-                            checked={selectedCarparkTypes.includes(carparkType)}
-                            onCheckedChange={() => toggleCarparkType(carparkType)}
-                          />
-                          <Label
-                            htmlFor={`carpark-${carparkType}`}
-                            className="text-xs cursor-pointer flex-1"
-                          >
-                            {formatCarparkType(carparkType)}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
+                          {formatLotType(lotType)}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
+                </div>
 
-
-                  {/* Payment Method Filter */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Payment Method
-                      </label>
-                      {selectedPaymentMethods.length > 0 && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => setSelectedPaymentMethods([])}
+                {/* Carpark Type Filter */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Carpark Type
+                    </label>
+                    {selectedCarparkTypes.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setSelectedCarparkTypes([])}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto">
+                    {uniqueCarparkTypes.map((carparkType) => (
+                      <div key={carparkType} className="flex items-center space-x-2 p-1 rounded hover:bg-muted/30">
+                        <Checkbox
+                          id={`carpark-${carparkType}`}
+                          checked={selectedCarparkTypes.includes(carparkType)}
+                          onCheckedChange={() => toggleCarparkType(carparkType)}
+                        />
+                        <Label
+                          htmlFor={`carpark-${carparkType}`}
+                          className="text-xs cursor-pointer flex-1"
                         >
-                          Clear
-                        </Button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto">
-                      {uniquePaymentMethods.map((paymentMethod) => (
-                        <div key={paymentMethod} className="flex items-center space-x-2 p-1 rounded hover:bg-muted/30">
-                          <Checkbox
-                            id={`payment-${paymentMethod}`}
-                            checked={selectedPaymentMethods.includes(paymentMethod)}
-                            onCheckedChange={() => togglePaymentMethod(paymentMethod)}
-                          />
-                          <Label
-                            htmlFor={`payment-${paymentMethod}`}
-                            className="text-xs cursor-pointer flex-1"
-                          >
-                            {paymentMethod}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
+                          {formatCarparkType(carparkType)}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
+                </div>
+
+
+                {/* Payment Method Filter */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Payment Method
+                    </label>
+                    {selectedPaymentMethods.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setSelectedPaymentMethods([])}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto">
+                    {uniquePaymentMethods.map((paymentMethod) => (
+                      <div key={paymentMethod} className="flex items-center space-x-2 p-1 rounded hover:bg-muted/30">
+                        <Checkbox
+                          id={`payment-${paymentMethod}`}
+                          checked={selectedPaymentMethods.includes(paymentMethod)}
+                          onCheckedChange={() => togglePaymentMethod(paymentMethod)}
+                        />
+                        <Label
+                          htmlFor={`payment-${paymentMethod}`}
+                          className="text-xs cursor-pointer flex-1"
+                        >
+                          {paymentMethod}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Clear All Filters Button */}
@@ -816,8 +779,8 @@ export function MapView({
                 {searchLocation
                   ? `Within ${searchRadius[0]}km`
                   : searchQuery && !isPostalCode(searchQuery)
-                  ? `Search Results`
-                  : `In View`
+                    ? `Search Results`
+                    : `In View`
                 }
               </h3>
               {(selectedLotTypes.length > 0 || selectedCarparkTypes.length > 0 || selectedPaymentMethods.length > 0) && (
@@ -854,129 +817,128 @@ export function MapView({
                   )}
                   <Card
 
-                  className={`cursor-pointer transition-all ${
-                    selectedCarpark === carpark.id
+                    className={`cursor-pointer transition-all ${selectedCarpark === carpark.id
                       ? "ring-2 ring-primary"
                       : "hover:shadow-md"
-                  }`}
-                  onClick={() => handleCarparkClick(carpark)}
-                >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-sm flex-1">
-                        {getCarparkDisplayName(carpark)}
-                      </CardTitle>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={(e) => handleToggleFavorite(carpark.id, e)}
-                        >
-                          <Heart
-                            className={`w-4 h-4 ${user?.favoriteCarparks?.includes(carpark.id) ? 'fill-red-500 text-red-500' : ''}`}
-                          />
-                        </Button>
-                        <Badge
-                          variant="outline"
-                          className="text-xs"
-                        >
-                          {carpark.distance !== undefined
-                            ? `${carpark.distance}km`
-                            : "-"}
-                        </Badge>
+                      }`}
+                    onClick={() => handleCarparkClick(carpark)}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle className="text-sm flex-1">
+                          {getCarparkDisplayName(carpark)}
+                        </CardTitle>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => handleToggleFavorite(carpark.id, e)}
+                          >
+                            <Heart
+                              className={`w-4 h-4 ${user?.favoriteCarparks?.includes(carpark.id) ? 'fill-red-500 text-red-500' : ''}`}
+                            />
+                          </Button>
+                          <Badge
+                            variant="outline"
+                            className="text-xs"
+                          >
+                            {carpark.distance !== undefined
+                              ? `${carpark.distance}km`
+                              : "-"}
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
 
-                    {carpark.car_park_type && (
-                      <div className="mt-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {formatCarparkType(carpark.car_park_type)}
-                        </Badge>
-                      </div>
-                    )}
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="space-y-2">
-                        {/* Lot Types Row */}
-                        <div className="flex flex-wrap gap-2">
-                          {carpark.lotDetails && carpark.lotDetails.length > 0 ? (
-                            carpark.lotDetails.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0).map((lot) => {
-                              const getLotIcon = (lotType: string) => {
-                                switch (lotType) {
-                                  case 'C': return <Car className="w-3 h-3" />;
-                                  case 'Y': return <Motorbike className="w-3 h-3" />;
-                                  case 'H': return <Truck className="w-3 h-3" />;
-                                  default: return <Car className="w-3 h-3" />;
-                                }
-                              };
+                      {carpark.car_park_type && (
+                        <div className="mt-1">
+                          <Badge variant="secondary" className="text-xs">
+                            {formatCarparkType(carpark.car_park_type)}
+                          </Badge>
+                        </div>
+                      )}
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="space-y-2">
+                          {/* Lot Types Row */}
+                          <div className="flex flex-wrap gap-2">
+                            {carpark.lotDetails && carpark.lotDetails.length > 0 ? (
+                              carpark.lotDetails.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0).map((lot) => {
+                                const getLotIcon = (lotType: string) => {
+                                  switch (lotType) {
+                                    case 'C': return <Car className="w-3 h-3" />;
+                                    case 'Y': return <Motorbike className="w-3 h-3" />;
+                                    case 'H': return <Truck className="w-3 h-3" />;
+                                    default: return <Car className="w-3 h-3" />;
+                                  }
+                                };
 
-                              const getLotBgColor = (lotType: string) => {
-                                switch (lotType) {
-                                  case 'C': return 'bg-blue-100 text-blue-800';
-                                  case 'Y': return 'bg-green-100 text-green-800';
-                                  case 'H': return 'bg-orange-100 text-orange-800';
-                                  default: return 'bg-blue-100 text-blue-800';
-                                }
-                              };
-                              
-                              return (
-                                <div key={lot.lot_type} className={`flex items-center gap-1 px-2 py-1 rounded text-xs ${getLotBgColor(lot.lot_type)}`}>
-                                  {getLotIcon(lot.lot_type)}
-                                  <span>
-                                    {lot.available_lots}/{lot.total_lots || 'N/A'}
-                                  </span>
-                                </div>
-                              );
-                            })
-                          ) : (
+                                const getLotBgColor = (lotType: string) => {
+                                  switch (lotType) {
+                                    case 'C': return 'bg-blue-100 text-blue-800';
+                                    case 'Y': return 'bg-green-100 text-green-800';
+                                    case 'H': return 'bg-orange-100 text-orange-800';
+                                    default: return 'bg-blue-100 text-blue-800';
+                                  }
+                                };
+
+                                return (
+                                  <div key={lot.lot_type} className={`flex items-center gap-1 px-2 py-1 rounded text-xs ${getLotBgColor(lot.lot_type)}`}>
+                                    {getLotIcon(lot.lot_type)}
+                                    <span>
+                                      {lot.available_lots}/{lot.total_lots || 'N/A'}
+                                    </span>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                                <Car className="w-3 h-3" />
+                                <span>
+                                  {getCarparkAvailableLots(carpark)}/N/A
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* EV Row */}
+                          {carpark.evLots > 0 && (
                             <div className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
-                              <Car className="w-3 h-3" />
-                              <span>
-                                {carpark.availableLots}/N/A
-                              </span>
+                              <Zap className="w-3 h-3" />
+                              <span>{carpark.evLots} EV</span>
                             </div>
                           )}
                         </div>
-                        
-                        {/* EV Row */}
-                        {carpark.evLots > 0 && (
-                          <div className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
-                            <Zap className="w-3 h-3" />
-                            <span>{carpark.evLots} EV</span>
-                          </div>
-                        )}
-                      </div>
-                      <div
-                        className={`w-2 h-2 rounded-full ${(() => {
-                          // Use car lots (Type C) for marker color logic
-                          const carLot = carpark.lotDetails?.find(lot => lot.lot_type === 'C');
-                          if (carLot) {
-                            return getAvailabilityColor(carLot.available_lots, carLot.total_lots || null);
-                          }
-                          // Fallback to overall availability
-                          return getAvailabilityColor(carpark.availableLots, carpark.totalLots);
-                        })()}`}
-                      />
+                        <div
+                          className={`w-2 h-2 rounded-full ${(() => {
+                            // Use car lots (Type C) for marker color logic
+                            const carLot = carpark.lotDetails?.find(lot => lot.lot_type === 'C');
+                            if (carLot) {
+                              return getAvailabilityColor(carLot.available_lots, carLot.total_lots || null);
+                            }
+                            // Fallback to overall availability
+                            return getAvailabilityColor(getCarparkAvailableLots(carpark), getCarparkTotalLots(carpark));
+                          })()}`}
+                        />
 
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span>
-                          {carpark.drivingTime !== undefined
-                            ? `${carpark.drivingTime} min drive`
-                            : "- min drive"}
-                        </span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="w-3 h-3" />
-                        <span>S${carpark.rates.hourly}/30min</span>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          <span>
+                            {carpark.drivingTime !== undefined
+                              ? `${carpark.drivingTime} min drive`
+                              : "- min drive"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <DollarSign className="w-3 h-3" />
+                          <span>S${carpark.rates.hourly}/30min</span>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
                 </div>
               ))}
 
@@ -999,11 +961,11 @@ export function MapView({
             {carparksInBounds.length === 0 &&
               !isLoadingCarparks && (
                 <div className="text-center py-8 text-sm text-muted-foreground">
-                  {searchLocation 
+                  {searchLocation
                     ? `No carparks found within ${searchRadius[0]}km. Try increasing the search radius.`
                     : searchQuery && !isPostalCode(searchQuery)
-                    ? 'No carparks match your search. Try a different location or address.'
-                    : 'No carparks in current view. Try zooming out or moving the map.'
+                      ? 'No carparks match your search. Try a different location or address.'
+                      : 'No carparks in current view. Try zooming out or moving the map.'
                   }
                 </div>
               )}
@@ -1013,7 +975,7 @@ export function MapView({
 
       {/* Mobile Backdrop Overlay */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="md:hidden fixed inset-0 bg-black/30 z-[9] transition-opacity"
           onClick={() => setIsSidebarOpen(false)}
           aria-label="Close sidebar"
@@ -1039,20 +1001,20 @@ export function MapView({
         {/* Floating Ad Placeholder for Free Users */}
         {!isPremium && (
           <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 hidden lg:block">
-            <AdPlaceholder 
-              size="large" 
+            <AdPlaceholder
+              size="large"
               className="w-48 h-96 shadow-lg"
             />
           </div>
         )}
-        
+
         <LeafletMap
           carparks={carparksForMap}
           userLocation={userLocation}
           selectedCarparkId={selectedCarpark}
           onCarparkClick={handleCarparkClick}
           onBoundsChange={handleBoundsChange}
-          onZoomChange={handleZoomChange}
+          onZoomChange={undefined}
           searchLocation={searchLocation}
           selectedLotTypes={selectedLotTypes}
         />
@@ -1080,18 +1042,17 @@ export function MapView({
         <div className="absolute top-4 right-4 flex flex-col gap-2">
           {/* Location status indicator */}
           <div
-            className={`p-2 rounded-md bg-white border ${
-              userLocation 
-                ? 'border-green-200 text-green-600' 
-                : isLoadingLocation 
-                  ? 'border-blue-200 text-blue-600' 
-                  : 'border-gray-200 text-gray-400'
-            }`}
+            className={`p-2 rounded-md bg-white border ${userLocation
+              ? 'border-green-200 text-green-600'
+              : isLoadingLocation
+                ? 'border-blue-200 text-blue-600'
+                : 'border-gray-200 text-gray-400'
+              }`}
             title={
-              userLocation 
-                ? 'Location enabled' 
-                : isLoadingLocation 
-                  ? 'Getting location...' 
+              userLocation
+                ? 'Location enabled'
+                : isLoadingLocation
+                  ? 'Getting location...'
                   : 'Location unavailable'
             }
           >

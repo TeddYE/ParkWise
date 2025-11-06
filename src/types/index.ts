@@ -14,8 +14,6 @@ export interface Carpark {
     lat: number;
     lng: number;
   };
-  totalLots: number | null;
-  availableLots: number; // Total available across all lot types
   lotDetails: CarparkLotDetails[]; // Detailed breakdown by lot type
   evLots: number;
   availableEvLots: number;
@@ -37,9 +35,33 @@ export interface Carpark {
   paymentMethods: string[];
   car_park_type: string;
   type_of_parking_system: string;
-  // Legacy field for backward compatibility
-  lot_type?: string;
 }
+
+// Helper functions to calculate totals from lotDetails
+export const getCarparkTotalLots = (carpark: Carpark): number => {
+  return carpark.lotDetails.reduce((total, lot) => total + (lot.total_lots || 0), 0);
+};
+
+export const getCarparkAvailableLots = (carpark: Carpark): number => {
+  return carpark.lotDetails.reduce((total, lot) => total + lot.available_lots, 0);
+};
+
+export const getCarparkLotsByType = (carpark: Carpark, lotType: string): CarparkLotDetails | undefined => {
+  return carpark.lotDetails.find(lot => lot.lot_type === lotType);
+};
+
+export const getCarparkCarLots = (carpark: Carpark): CarparkLotDetails | undefined => {
+  return getCarparkLotsByType(carpark, 'C');
+};
+
+export const getCarparkPrimaryLotType = (carpark: Carpark): string => {
+  // Return the lot type with the most total lots
+  const primaryLot = carpark.lotDetails.reduce((max, lot) => 
+    (lot.total_lots || 0) > (max.total_lots || 0) ? lot : max
+  , carpark.lotDetails[0]);
+  
+  return primaryLot?.lot_type || 'C';
+};
 
 export type ViewType =
   | "map"

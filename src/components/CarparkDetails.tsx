@@ -18,7 +18,7 @@ import { Slider } from './ui/slider';
 import { PredictionChart } from './ui/PredictionChart';
 import { PredictionInsights } from './ui/PredictionInsights';
 import { AdPlaceholder } from './ui/AdPlaceholder';
-import { Carpark, User } from '../types';
+import { Carpark, User, getCarparkTotalLots, getCarparkAvailableLots, getCarparkPrimaryLotType } from '../types';
 import { toast } from "sonner";
 import { AuthService } from '../services/authService';
 import { getCarparkDisplayName } from '../utils/carpark';
@@ -63,12 +63,12 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
   useEffect(() => {
     if (isPremium && lastFetchedCarparkRef.current !== carpark.id) {
       lastFetchedCarparkRef.current = carpark.id;
-      predictions.fetchPredictions(carpark.id, carpark.totalLots ?? undefined);
+      predictions.fetchPredictions(carpark.id, getCarparkTotalLots(carpark) || undefined);
     } else if (!isPremium) {
       // Reset ref when user is not premium
       lastFetchedCarparkRef.current = null;
     }
-  }, [isPremium, carpark.id, carpark.totalLots, predictions.fetchPredictions]);
+  }, [isPremium, carpark.id, carpark, predictions.fetchPredictions]);
 
   // Memoize expensive calculations
   const availabilityStatus = useMemo(() => {
@@ -448,6 +448,9 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
                       <BarChart3 className="w-5 h-5" />
                       Smart Insights
                     </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Car lot availability predictions and recommendations
+                    </p>
                   </CardHeader>
                   <CardContent>
                     {predictions.data && predictions.data.predictions.length > 0 ? (
@@ -457,6 +460,9 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
                           predictions={predictions.data.predictions}
                           carparkName={displayName}
                           totalLots={carpark.totalLots ?? undefined}
+                          carpark={{
+                            lotDetails: carpark.lotDetails,
+                          }}
                           loading={predictions.loading}
                           error={predictions.error ?? undefined}
                           onRetry={predictions.retry}
@@ -471,6 +477,9 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
                           carparkInfo={{
                             name: displayName,
                             totalLots: carpark.totalLots ?? 0,
+                          }}
+                          carpark={{
+                            lotDetails: carpark.lotDetails,
                           }}
                           analysis={predictions.data.analysis}
                         />

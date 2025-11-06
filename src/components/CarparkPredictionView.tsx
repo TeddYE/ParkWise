@@ -78,6 +78,9 @@ export function CarparkPredictionView({ carpark }: CarparkPredictionViewProps) {
         predictions={data?.predictions || []}
         carparkName={carpark.name}
         totalLots={carpark.totalLots || undefined}
+        carpark={{
+          lotDetails: carpark.lotDetails,
+        }}
         loading={loading}
         error={error || undefined}
         onRetry={canRetry ? retry : undefined}
@@ -91,6 +94,9 @@ export function CarparkPredictionView({ carpark }: CarparkPredictionViewProps) {
           carparkInfo={{
             name: carpark.name,
             totalLots: carpark.totalLots ?? 0,
+          }}
+          carpark={{
+            lotDetails: carpark.lotDetails,
           }}
           analysis={data.analysis}
         />
