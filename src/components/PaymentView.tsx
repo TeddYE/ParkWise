@@ -33,17 +33,20 @@ export function PaymentView({ onViewChange, onPaymentSuccess, user, planType }: 
     }
   });
 
-  const monthlyPrice = 3.99;
-  const annualPrice = 39.99;
+  const monthlyPrice = 1.99; // GST included
+  const annualPrice = 19.99; // GST included
   const currentPrice = planType === 'annual' ? annualPrice : monthlyPrice;
   const annualSavings = (monthlyPrice * 12) - annualPrice;
+
+  // Calculate GST component (for display purposes only)
   const gstRate = 0.09; // 9% GST
-  const gstAmount = currentPrice * gstRate;
-  const totalPrice = currentPrice + gstAmount;
+  const priceBeforeGst = currentPrice / (1 + gstRate);
+  const gstAmount = currentPrice - priceBeforeGst;
+  const totalPrice = currentPrice; // Price already includes GST
 
   const handleInputChange = (field: string, value: string) => {
     setError(''); // Clear error when user types
-    
+
     if (field.startsWith('billing.')) {
       const billingField = field.replace('billing.', '');
       setPaymentMethod(prev => ({
@@ -86,49 +89,49 @@ export function PaymentView({ onViewChange, onPaymentSuccess, user, planType }: 
       setError('Please enter a valid 16-digit card number');
       return false;
     }
-    
+
     if (!paymentMethod.expiryDate || paymentMethod.expiryDate.length !== 5) {
       setError('Please enter a valid expiry date (MM/YY)');
       return false;
     }
-    
+
     if (!paymentMethod.cvv || paymentMethod.cvv.length !== 3) {
       setError('Please enter a valid 3-digit CVV');
       return false;
     }
-    
+
     if (!paymentMethod.nameOnCard.trim()) {
       setError('Please enter the name on card');
       return false;
     }
-    
+
     if (!paymentMethod.billingAddress.line1.trim()) {
       setError('Please enter billing address');
       return false;
     }
-    
+
     if (!paymentMethod.billingAddress.city.trim()) {
       setError('Please enter city');
       return false;
     }
-    
+
     if (!paymentMethod.billingAddress.postalCode.trim()) {
       setError('Please enter postal code');
       return false;
     }
-    
+
     return true;
   };
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!user) {
       setError('User not authenticated');
       return;
     }
-    
+
     if (!validatePaymentForm()) {
       return;
     }
@@ -248,7 +251,7 @@ export function PaymentView({ onViewChange, onPaymentSuccess, user, planType }: 
                   {/* Billing Address */}
                   <div className="space-y-4">
                     <h3 className="font-medium">Billing Address</h3>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="address">Address</Label>
                       <Input
@@ -285,8 +288,8 @@ export function PaymentView({ onViewChange, onPaymentSuccess, user, planType }: 
 
                     <div className="space-y-2">
                       <Label htmlFor="country">Country</Label>
-                      <Select 
-                        value={paymentMethod.billingAddress.country} 
+                      <Select
+                        value={paymentMethod.billingAddress.country}
                         onValueChange={(value) => handleInputChange('billing.country', value)}
                       >
                         <SelectTrigger>
@@ -347,26 +350,18 @@ export function PaymentView({ onViewChange, onPaymentSuccess, user, planType }: 
 
                 <Separator />
 
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>S${currentPrice.toFixed(2)}</span>
-                </div>
-                
-                <div className="flex justify-between">
-                  <span>GST (9%)</span>
-                  <span>S${gstAmount.toFixed(2)}</span>
-                </div>
-
-                <Separator />
-
                 <div className="flex justify-between font-medium">
-                  <span>Total</span>
+                  <span>Total (GST included)</span>
                   <span>S${totalPrice.toFixed(2)}</span>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  Includes GST of S${gstAmount.toFixed(2)}
                 </div>
 
                 {planType === 'annual' && (
                   <div className="text-sm text-muted-foreground">
-                    Effective monthly rate: S${(totalPrice / 12).toFixed(2)} (incl. GST)
+                    Effective monthly rate: S${(totalPrice / 12).toFixed(2)} (GST included)
                   </div>
                 )}
               </CardContent>
@@ -379,12 +374,11 @@ export function PaymentView({ onViewChange, onPaymentSuccess, user, planType }: 
               <CardContent>
                 <ul className="space-y-2 text-sm">
                   {[
-                    'Smart carpark recommender',
-                    'Parking cost calculator',
-                    'Availability notifications',
-                    'Waitlist for full carparks',
+                    '24-hour availability forecasts',
+                    'Smart parking insights',
+                    'Advanced filtering options',
                     'Ad-free experience',
-                    'Priority customer support'
+                    'Priority customer support',
                   ].map((feature, index) => (
                     <li key={index} className="flex items-center gap-2">
                       <Check className="w-4 h-4 text-green-600" />

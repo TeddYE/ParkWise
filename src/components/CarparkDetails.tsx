@@ -72,15 +72,32 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
 
   // Memoize expensive calculations
   const availabilityStatus = useMemo(() => {
-    const getAvailabilityStatus = (available: number) => {
-      // Since totals are now N/A, use absolute availability numbers for status
+    const available = getCarparkAvailableLots(carpark);
+    const total = getCarparkTotalLots(carpark);
+
+    const getAvailabilityStatus = (available: number, total?: number) => {
+      // If we have total capacity, use percentage-based thresholds for more accurate status
+      if (total && total > 0) {
+        const percentage = (available / total) * 100;
+        if (percentage >= 70) return { text: 'Excellent', color: 'bg-green-100 text-green-800' };
+        if (percentage >= 50) return { text: 'Good Availability', color: 'bg-green-100 text-green-800' };
+        if (percentage >= 25) return { text: 'Limited Availability', color: 'bg-yellow-100 text-yellow-800' };
+        if (percentage >= 10) return { text: 'Very Limited', color: 'bg-orange-100 text-orange-800' };
+        if (available > 0) return { text: 'Almost Full', color: 'bg-red-100 text-red-800' };
+        return { text: 'Full', color: 'bg-red-100 text-red-800' };
+      }
+
+      // Fallback to absolute numbers if no total available
+      if (available > 100) return { text: 'Excellent', color: 'bg-green-100 text-green-800' };
       if (available > 50) return { text: 'Good Availability', color: 'bg-green-100 text-green-800' };
       if (available > 20) return { text: 'Limited Availability', color: 'bg-yellow-100 text-yellow-800' };
-      if (available > 0) return { text: 'Very Limited', color: 'bg-orange-100 text-orange-800' };
-      return { text: 'No Availability', color: 'bg-red-100 text-red-800' };
+      if (available > 5) return { text: 'Very Limited', color: 'bg-orange-100 text-orange-800' };
+      if (available > 0) return { text: 'Almost Full', color: 'bg-red-100 text-red-800' };
+      return { text: 'Full', color: 'bg-red-100 text-red-800' };
     };
-    return getAvailabilityStatus(carpark.availableLots);
-  }, [carpark.availableLots]);
+
+    return getAvailabilityStatus(available, total);
+  }, [carpark]);
 
   const isFavorite = useMemo(() =>
     user?.favoriteCarparks?.includes(carpark.id) || false,
@@ -407,7 +424,7 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
                   <div>
                     <div className="text-sm">
                       <span className="text-muted-foreground">Lot Type: </span>
-                      <span>{carpark.lot_type || 'N/A'}</span>
+                      <span>{getCarparkPrimaryLotType(carpark) || 'N/A'}</span>
                     </div>
                   </div>
                 </div>
@@ -459,7 +476,7 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
                         <PredictionChart
                           predictions={predictions.data.predictions}
                           carparkName={displayName}
-                          totalLots={carpark.totalLots ?? undefined}
+                          totalLots={getCarparkTotalLots(carpark) || undefined}
                           carpark={{
                             lotDetails: carpark.lotDetails,
                           }}
@@ -476,7 +493,7 @@ export const CarparkDetails = memo(function CarparkDetails({ carpark, onBack, on
                           predictions={predictions.data.predictions}
                           carparkInfo={{
                             name: displayName,
-                            totalLots: carpark.totalLots ?? 0,
+                            totalLots: getCarparkTotalLots(carpark) || 0,
                           }}
                           carpark={{
                             lotDetails: carpark.lotDetails,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Heart, Crown, Calendar, MapPin, Navigation, Trash2, ArrowLeft, Edit2, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Heart, Crown, MapPin, Navigation, Trash2, ArrowLeft, Edit2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from './ui/avatar';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
-import { User as UserType, Carpark, ViewType } from '../types';
+import { User as UserType, Carpark, ViewType, getCarparkAvailableLots, getCarparkTotalLots } from '../types';
 import { CarparkService } from '../services/carparkService';
 import { toast } from "sonner";
 import { AuthService } from '../services/authService';
@@ -287,20 +287,15 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark,
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
-                    Smart carpark recommender
+                    24-hour availability forecasts
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
-                    Parking cost calculator
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
-                    Availability notifications
+                    Smart parking insights
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
-                    Waitlist for full carparks
+                    Advanced filtering options
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
@@ -313,39 +308,19 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark,
         </CardContent>
       </Card>
 
-      {/* Favorite Carparks - Premium Only */}
+      {/* Favorite Carparks */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Heart className="w-5 h-5" />
             Favorite Carparks
-            {!isPremium && (
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                <Crown className="w-3 h-3 mr-1" />
-                Premium
-              </Badge>
-            )}
             {favoriteCarparks.length > 0 && (
               <Badge variant="secondary">{favoriteCarparks.length}</Badge>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {!isPremium ? (
-            <div className="text-center py-12 px-4">
-              <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Crown className="w-8 h-8 text-yellow-600" />
-              </div>
-              <h3 className="mb-2">Premium Feature</h3>
-              <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-                Save your favorite carparks for quick access. Upgrade to Premium to unlock this feature.
-              </p>
-              <Button onClick={() => onViewChange('pricing')}>
-                <Crown className="w-4 h-4 mr-2" />
-                Upgrade to Premium
-              </Button>
-            </div>
-          ) : loading ? (
+          {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
               <p className="text-muted-foreground">Loading favorites...</p>
@@ -376,16 +351,38 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark,
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h4 className="truncate">{getCarparkDisplayName(carpark)}</h4>
-                      {carpark.availableLots > 0 ? (
-                        <Badge className="bg-green-100 text-green-800 border-green-200">
-                          {carpark.availableLots} lots
-                          {carpark.lotDetails && carpark.lotDetails.length > 1 && (
-                            <span className="ml-1 text-xs">({carpark.lotDetails.length} types)</span>
-                          )}
-                        </Badge>
-                      ) : (
-                        <Badge variant="destructive">Full</Badge>
-                      )}
+                      {(() => {
+                        const available = getCarparkAvailableLots(carpark);
+                        const total = getCarparkTotalLots(carpark);
+                        
+                        // Use same logic as CarparkDetails for consistency
+                        const getAvailabilityStatus = (available: number, total?: number) => {
+                          if (total && total > 0) {
+                            const percentage = (available / total) * 100;
+                            if (percentage >= 70) return { text: 'Excellent', color: 'bg-green-100 text-green-800' };
+                            if (percentage >= 50) return { text: 'Good Availability', color: 'bg-green-100 text-green-800' };
+                            if (percentage >= 25) return { text: 'Limited Availability', color: 'bg-yellow-100 text-yellow-800' };
+                            if (percentage >= 10) return { text: 'Very Limited', color: 'bg-orange-100 text-orange-800' };
+                            if (available > 0) return { text: 'Almost Full', color: 'bg-red-100 text-red-800' };
+                            return { text: 'Full', color: 'bg-red-100 text-red-800' };
+                          }
+                          
+                          if (available > 100) return { text: 'Excellent', color: 'bg-green-100 text-green-800' };
+                          if (available > 50) return { text: 'Good Availability', color: 'bg-green-100 text-green-800' };
+                          if (available > 20) return { text: 'Limited Availability', color: 'bg-yellow-100 text-yellow-800' };
+                          if (available > 5) return { text: 'Very Limited', color: 'bg-orange-100 text-orange-800' };
+                          if (available > 0) return { text: 'Almost Full', color: 'bg-red-100 text-red-800' };
+                          return { text: 'Full', color: 'bg-red-100 text-red-800' };
+                        };
+                        
+                        const status = getAvailabilityStatus(available, total);
+                        
+                        return (
+                          <Badge className={status.color}>
+                            {status.text}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                     <p className="text-sm text-muted-foreground truncate mb-1">
                       {carpark.address}
@@ -399,7 +396,10 @@ export function ProfileView({ user, onViewChange, onUpdateUser, onSelectCarpark,
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => onSelectCarpark(carpark)}
+                      onClick={() => {
+                        console.log('ProfileView: Selecting carpark:', carpark);
+                        onSelectCarpark(carpark);
+                      }}
                     >
                       <Navigation className="w-4 h-4 mr-2" />
                       View

@@ -90,9 +90,6 @@ export class SubscriptionService {
       'Unlimited parking searches',
       'Real-time availability updates',
       'Advanced filtering options',
-      'Favorite carparks management',
-      'Driving time estimates',
-      'Priority customer support',
       'No advertisements',
     ];
   }

@@ -25,11 +25,11 @@ export interface Carpark {
   distance?: number;
   drivingTime?: number;
   type:
-    | "Shopping Mall"
-    | "HDB"
-    | "Commercial"
-    | "Entertainment"
-    | "Hotel";
+  | "Shopping Mall"
+  | "HDB"
+  | "Commercial"
+  | "Entertainment"
+  | "Hotel";
   features: string[];
   operatingHours: string;
   paymentMethods: string[];
@@ -56,10 +56,10 @@ export const getCarparkCarLots = (carpark: Carpark): CarparkLotDetails | undefin
 
 export const getCarparkPrimaryLotType = (carpark: Carpark): string => {
   // Return the lot type with the most total lots
-  const primaryLot = carpark.lotDetails.reduce((max, lot) => 
+  const primaryLot = carpark.lotDetails.reduce((max, lot) =>
     (lot.total_lots || 0) > (max.total_lots || 0) ? lot : max
-  , carpark.lotDetails[0]);
-  
+    , carpark.lotDetails[0]);
+
   return primaryLot?.lot_type || 'C';
 };
 

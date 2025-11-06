@@ -53,8 +53,10 @@ function AppContent() {
   }, []);
 
   const handleSelectCarpark = useCallback((carpark: Carpark | null) => {
+    console.log('App: handleSelectCarpark called with:', carpark);
     setSelectedCarpark(carpark);
     if (carpark) {
+      console.log('App: Setting view to details');
       setCurrentView('details');
     }
   }, []);
@@ -191,7 +193,7 @@ function AppContent() {
   const handleLoginSuccess = useCallback((authUser: User) => {
     updateUser(authUser);
     handleViewChange("map"); // Always show map after login
-    toast.success(`Welcome back, ${authUser.user_id}! 🎉`, {
+    toast.success("Welcome back! 🎉", {
       description:
         authUser.subscription === "premium"
           ? "You have premium access to all features."
@@ -207,7 +209,7 @@ function AppContent() {
     if (authUser.subscription === "free") {
       handleViewChange("map");
       toast.success(
-        `Welcome to ParkWise, ${authUser.user_id}! 🎉`,
+        "Welcome to ParkWise! 🎉",
         {
           description:
             "Account created successfully. Upgrade anytime for premium features!",
@@ -292,6 +294,13 @@ function AppContent() {
             user={user || undefined}
             onUpdateUser={updateUser}
           />
+        )}
+        
+        {/* Debug info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="fixed bottom-4 right-4 bg-black text-white p-2 text-xs rounded">
+            View: {currentView} | Selected: {selectedCarpark?.id || 'none'}
+          </div>
         )}
 
 
