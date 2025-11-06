@@ -20,6 +20,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false, // Disable source maps to avoid CSP issues
+    minify: 'terser',
   },
 });

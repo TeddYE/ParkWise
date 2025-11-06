@@ -18,7 +18,7 @@ export class CarparkService {
    */
   static async fetchCarparks(): Promise<Carpark[]> {
     try {
-      console.log('Fetching carpark data with centralized API client...');
+      // Fetching carpark data
       
       const [infoData, availabilityData] = await Promise.all([
         this.getCarparkInfo(),
@@ -27,13 +27,13 @@ export class CarparkService {
 
       const carparks = CarparkTransformer.combineCarparksData(infoData, availabilityData);
       
-      console.log(`Successfully processed ${carparks.length} carparks`);
+      // Successfully processed carparks
       return carparks;
     } catch (error) {
       // Try to return cached data as fallback
       const cachedCarparks = await this.getCachedCarparks();
       if (cachedCarparks.length > 0) {
-        console.log(`Returning ${cachedCarparks.length} cached carparks as fallback`);
+        // Using cached carparks as fallback
         return cachedCarparks;
       }
       
@@ -54,11 +54,11 @@ export class CarparkService {
     );
     
     if (cached) {
-      console.log('Using cached carpark info data');
+      // Using cached carpark info data
       return cached;
     }
 
-    console.log('Fetching fresh carpark info data...');
+    // Fetching fresh carpark info data
     
     try {
       // Use original empty headers configuration like the original service
@@ -85,19 +85,7 @@ export class CarparkService {
         { ttl: this.INFO_CACHE_TTL }
       );
 
-      console.log(`Cached ${records.length} carpark info records`);
-      
-      // Log sample for debugging
-      if (records.length > 0) {
-        console.log('Sample carpark info record:', {
-          carpark_number: records[0].carpark_number,
-          lots: records[0].lots,
-          total_lots: records[0].total_lots,
-          current_rate_30min: records[0].current_rate_30min,
-          active_cap_amount: records[0].active_cap_amount,
-          legacy_lot_type: records[0].lot_type,
-        });
-      }
+      // Cached carpark info records
 
       return records;
     } catch (error) {
@@ -108,7 +96,7 @@ export class CarparkService {
       );
       
       if (expiredCache) {
-        console.log('Using expired cached carpark info data as fallback');
+        // Using expired cached carpark info data as fallback
         return expiredCache;
       }
       
@@ -129,11 +117,11 @@ export class CarparkService {
     );
     
     if (cached) {
-      console.log('Using cached availability data');
+      // Using cached availability data
       return cached;
     }
 
-    console.log('Fetching fresh availability data...');
+    // Fetching fresh availability data
     
     try {
       // Use original empty headers configuration like the original service
@@ -160,16 +148,7 @@ export class CarparkService {
         { ttl: this.AVAILABILITY_CACHE_TTL }
       );
 
-      console.log(`Cached ${records.length} availability records`);
-      
-      // Log sample for debugging new lots format
-      if (records.length > 0) {
-        console.log('Sample availability record:', {
-          carpark_number: records[0].carpark_number,
-          lots: records[0].lots,
-          legacy_lots_available: records[0].lots_available,
-        });
-      }
+      // Cached availability records
       
       return records;
     } catch (error) {

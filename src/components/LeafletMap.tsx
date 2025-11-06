@@ -56,14 +56,14 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
       document.head.appendChild(script);
 
       script.onload = () => {
-        console.log('Leaflet library loaded');
+        // Leaflet library loaded
         setLeafletReady(true);
       };
     } else {
       // Script exists, wait for it to load
       const checkInterval = setInterval(() => {
         if (window.L) {
-          console.log('Leaflet library ready');
+          // Leaflet library ready
           setLeafletReady(true);
           clearInterval(checkInterval);
         }
@@ -78,7 +78,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
   useEffect(() => {
     if (!leafletReady || !window.L || !mapRef.current || mapInstanceRef.current) return;
 
-    console.log('Initializing empty map...');
+    // Initializing empty map
 
     // Always start with Singapore city centre (Raffles Place)
     const defaultCenter = { lat: 1.2897, lng: 103.8501 };
@@ -128,11 +128,11 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
     setTimeout(() => {
       if (map) {
         map.invalidateSize();
-        console.log('Map size invalidated and recalculated');
+        // Map size invalidated and recalculated
       }
     }, 100);
 
-    console.log('Empty map initialized successfully');
+    // Empty map initialized successfully
 
     return () => {
       if (boundsUpdateTimeoutRef.current) {
@@ -149,7 +149,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
   useEffect(() => {
     if (!mapInstanceRef.current || !userLocation) return;
 
-    console.log('User location available, panning to:', userLocation);
+    // User location available, panning to location
     mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], 14, {
       animate: true,
       duration: 1
@@ -221,7 +221,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
   useEffect(() => {
     if (!mapInstanceRef.current || !searchLocation) return;
 
-    console.log('Search location available, panning to:', searchLocation);
+    // Search location available, panning to location
     mapInstanceRef.current.setView([searchLocation.lat, searchLocation.lng], 15, {
       animate: true,
       duration: 1

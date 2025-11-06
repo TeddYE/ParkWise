@@ -89,7 +89,7 @@ export function useDrivingTimes({
 
         setCarparksWithTimes([...updated]); // Force new array reference
       } else {
-        console.log('📏 Using straight-line distance estimation (real times disabled)');
+        // Using straight-line distance estimation
         // Use straight-line distance estimation
         const updated = carparks.map(carpark => {
           const distance = calculateDistance(
@@ -173,12 +173,8 @@ export function useDrivingTimes({
   }, [carparks, carparksWithTimes.length]);
 
   useEffect(() => {
-    console.log('🔄 useDrivingTimes useEffect triggered');
-    console.log('📍 userLocation:', userLocation ? `${userLocation.lat}, ${userLocation.lng}` : 'null');
-    console.log('🏢 carparks.length:', carparks.length);
-
     if (!userLocation) {
-      console.log('❌ No user location, setting undefined driving times');
+      // No user location, setting undefined driving times
       // No user location, set distance and drivingTime to undefined
       const carparksWithoutLocation = carparks.map(carpark => ({
         ...carpark,
@@ -190,11 +186,11 @@ export function useDrivingTimes({
     }
 
     if (carparks.length === 0) {
-      console.log('❌ No carparks data, skipping driving times calculation');
+      // No carparks data, skipping driving times calculation
       return;
     }
 
-    console.log('✅ Both location and carparks available, calling updateDrivingTimes');
+    // Both location and carparks available, updating driving times
     updateDrivingTimes();
   }, [carparks, userLocation, updateDrivingTimes]);
 

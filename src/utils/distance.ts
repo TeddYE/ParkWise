@@ -606,7 +606,7 @@ export async function fetchDrivingTimes(
 
   // Try OSRM Table service first (much faster for multiple destinations)
   try {
-    console.log(`🌐 Trying OSRM Table service for ${destinations.length} destinations`);
+    // Trying OSRM Table service
 
     // OSRM Table service can handle up to 25x25 matrix efficiently
     const maxTableSize = 25;
@@ -649,7 +649,7 @@ export async function fetchDrivingTimes(
             }
           });
 
-          console.log(`✅ OSRM Table service succeeded for ${results.size}/${destinations.length} destinations`);
+          // OSRM Table service succeeded
 
           // Fill any missing results with local calculation
           destinations.forEach(dest => {
@@ -667,7 +667,7 @@ export async function fetchDrivingTimes(
       }
     } else if (destinations.length > maxTableSize) {
       // Handle large sets with batching
-      console.log(`📦 Processing ${destinations.length} destinations in batches of ${maxTableSize}`);
+      // Processing destinations in batches
 
       for (let i = 0; i < destinations.length; i += maxTableSize) {
         const batch = destinations.slice(i, i + maxTableSize);
@@ -714,7 +714,7 @@ export async function fetchDrivingTimes(
         }
       }
 
-      console.log(`✅ OSRM Table batching completed for ${results.size}/${destinations.length} destinations`);
+      // OSRM Table batching completed
 
       // Fill any missing results with local calculation
       destinations.forEach(dest => {
@@ -733,7 +733,7 @@ export async function fetchDrivingTimes(
     throw new Error('OSRM Table service not suitable or failed');
 
   } catch (error) {
-    console.log(`⚠️ OSRM Table service failed, using Singapore-optimized local calculations`);
+    // OSRM Table service failed, using local calculations
 
     // Fallback to Singapore-optimized local calculation
     destinations.forEach(dest => {
@@ -744,7 +744,7 @@ export async function fetchDrivingTimes(
       });
     });
 
-    console.log(`✅ Completed Singapore-optimized calculations for ${results.size} destinations`);
+    // Completed Singapore-optimized calculations
     return results;
   }
 }
@@ -788,7 +788,7 @@ function loadCacheFromStorage(): void {
           });
         }
       });
-      console.log('Loaded driving times cache from storage');
+      // Loaded driving times cache from storage
     }
   } catch (error) {
     console.warn('Failed to load driving times cache:', error);
@@ -861,7 +861,7 @@ export function cleanupCache(): void {
   });
 
   if (cleanedCount > 0) {
-    console.log(`Cleaned up ${cleanedCount} expired cache entries`);
+    // Cleaned up expired cache entries
     saveCacheToStorage();
   }
 }
@@ -887,13 +887,13 @@ export async function fetchDrivingTimesWithCache(
     const missingDestinations = destinations.filter(dest => !cached.data.has(dest.id));
 
     if (missingDestinations.length === 0) {
-      console.log(`Using cached driving times for ${destinations.length} destinations`);
+      // Using cached driving times
       return cached.data;
     }
 
     // Fetch only missing destinations
     if (missingDestinations.length < destinations.length) {
-      console.log(`Fetching ${missingDestinations.length} missing destinations, ${destinations.length - missingDestinations.length} from cache`);
+      // Fetching missing destinations
       const newData = await fetchDrivingTimes(origin, missingDestinations);
 
       // Merge with existing cache
@@ -911,9 +911,9 @@ export async function fetchDrivingTimesWithCache(
   }
 
   // Fetch fresh data for all destinations
-  console.log(`Fetching fresh driving times for ${destinations.length} destinations`);
+  // Fetching fresh driving times
   const data = await fetchDrivingTimes(origin, destinations);
-  console.log(`Completed fetching driving times, got ${data.size} results`);
+  // Completed fetching driving times
 
   // Update cache and save to storage
   drivingTimeCache.set(cacheKey, {

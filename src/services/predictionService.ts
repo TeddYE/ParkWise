@@ -130,7 +130,7 @@ export class PredictionService {
 
     return predictionDeduplicator.deduplicate(deduplicationKey, async () => {
       try {
-        console.log(`Fetching predictions for carpark ${carparkNumber}...`);
+        // Fetching predictions for carpark
 
         // Fetch fresh predictions from API
         const apiResponse = await this.fetchPredictionsFromAPI(carparkNumber);
@@ -158,7 +158,7 @@ export class PredictionService {
           },
         };
 
-        console.log(`Successfully fetched predictions for carpark ${carparkNumber}`);
+        // Successfully fetched predictions
         return { data: response, cached: false };
 
       } catch (error) {
@@ -193,16 +193,14 @@ export class PredictionService {
         return { error: response.error || 'Failed to fetch predictions from API' };
       }
 
-      // Debug: Log the actual API response
-      console.log('API Response Data:', response.data);
-      console.log('Data type:', typeof response.data);
+      // Parse API response data
 
       // Parse JSON string if needed
       let parsedData = response.data;
       if (typeof response.data === 'string') {
         try {
           parsedData = JSON.parse(response.data);
-          console.log('Parsed data:', parsedData);
+          // Parsed JSON data successfully
         } catch (parseError) {
           console.error('Failed to parse JSON response:', parseError);
           return { error: 'Invalid JSON response from API' };

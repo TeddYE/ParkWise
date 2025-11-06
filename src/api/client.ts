@@ -1,4 +1,5 @@
 import { ApiResponse, ApiError, ApiErrorType } from '@/types';
+import { carparkApiLimiter, authApiLimiter, predictionApiLimiter } from '@/utils/rateLimiter';
 
 // Default configuration
 const DEFAULT_TIMEOUT = 10000; // 10 seconds
@@ -194,27 +195,26 @@ class ApiClient {
 
     const requestKey = `${config.method || 'GET'}:${url}:${JSON.stringify(config.body || {})}`;
 
-    // Log all API requests
-    console.log('🚀 API Request:', {
-      url,
-      method: config.method || 'GET',
-      body: config.body,
-      timestamp: new Date().toISOString()
-    });
+    // Check rate limiting
+    const rateLimiter = this.getRateLimiter(url);
+    if (!rateLimiter.isAllowed(url)) {
+      return {
+        data: {} as T,
+        success: false,
+        error: 'Rate limit exceeded. Please try again later.',
+        metadata: {
+          timestamp: new Date(),
+          source: 'rate-limiter',
+          cached: false,
+        },
+      };
+    }
 
     try {
       const result = await this.deduplicator.deduplicate(requestKey, async () => {
         const [finalUrl, finalConfig] = await this.interceptRequest(url, fetchConfig);
 
-        // Debug log for prediction URL
-        if (url.includes('availability_predictor')) {
-          console.debug('🔮 PREDICTION URL CALLED:', {
-            fullUrl: url,
-            method: finalConfig.method || 'GET',
-            timestamp: new Date().toISOString(),
-            requestBody: finalConfig.body ? JSON.parse(finalConfig.body as string) : null
-          });
-        }
+        // Handle prediction URL requests
 
         return this.withRetry(async () => {
           const response = await this.withTimeout(
@@ -275,6 +275,17 @@ class ApiClient {
 
   async delete<T>(url: string, config?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>(url, { ...config, method: 'DELETE' });
+  }
+
+  // Get appropriate rate limiter based on URL
+  private getRateLimiter(url: string) {
+    if (url.includes('login') || url.includes('signup') || url.includes('update')) {
+      return authApiLimiter;
+    }
+    if (url.includes('predictor') || url.includes('predict')) {
+      return predictionApiLimiter;
+    }
+    return carparkApiLimiter;
   }
 }
 
