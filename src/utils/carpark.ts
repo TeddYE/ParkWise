@@ -45,3 +45,37 @@ export function getCarparkMapDisplayName(carpark: Carpark, maxLength: number = 2
 export function getCarparkShortDisplayName(carpark: Carpark, maxLength: number = 30): string {
   return getCarparkDisplayName(carpark, maxLength);
 }
+
+/**
+ * Format carpark type for display (capitalize words, replace underscores)
+ */
+export function formatCarparkType(carparkType: string): string {
+  return carparkType
+    .replace(/_/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
+ * Get availability color based on available and total lots
+ * Returns Tailwind CSS class for background color
+ */
+export function getAvailabilityBgColor(available: number, total: number | null): string {
+  if (total === null || total === 0) return "bg-gray-400";
+  const percentage = (available / total) * 100;
+  if (percentage > 30) return "bg-green-500";
+  if (percentage > 10) return "bg-yellow-500";
+  return "bg-red-500";
+}
+
+/**
+ * Get availability color based on absolute available lots
+ * Returns Tailwind CSS class for text color
+ */
+export function getAvailabilityTextColor(available: number): string {
+  if (available > 50) return 'text-green-600';
+  if (available > 20) return 'text-yellow-600';
+  if (available > 0) return 'text-orange-600';
+  return 'text-red-600';
+}

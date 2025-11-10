@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Carpark, getCarparkAvailableLots, getCarparkTotalLots } from '../types';
-import { getCarparkMapDisplayName } from '../utils/carpark';
+import { getCarparkMapDisplayName, formatCarparkType } from '../utils/carpark';
+import { getLotEmoji, getLotGradient, getLotTextColor } from '../utils/lotTypes';
 
 interface LeafletMapProps {
   carparks: Carpark[];
@@ -80,11 +81,12 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
 
     // Initializing empty map
 
-    // Always start with Singapore city centre (Raffles Place)
-    const defaultCenter = { lat: 1.2897, lng: 103.8501 };
+    // Use user location if available, otherwise Singapore city centre (Raffles Place)
+    const initialCenter = userLocation || { lat: 1.2897, lng: 103.8501 };
+    const initialZoom = userLocation ? 14 : 13;
 
-    // Create map immediately with default location
-    const map = window.L.map(mapRef.current).setView([defaultCenter.lat, defaultCenter.lng], 13);
+    // Create map immediately with initial location
+    const map = window.L.map(mapRef.current).setView([initialCenter.lat, initialCenter.lng], initialZoom);
 
     // Add OpenStreetMap tiles
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -143,7 +145,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
         mapInstanceRef.current = null;
       }
     };
-  }, [leafletReady, onBoundsChange, onZoomChange]); // Wait for Leaflet to be ready
+  }, [leafletReady, onBoundsChange, onZoomChange, userLocation]); // Include userLocation to re-center on mount
 
   // Pan to user location when it becomes available (but don't re-initialize map)
   useEffect(() => {
@@ -156,14 +158,18 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
     });
   }, [userLocation]);
 
-  // Update user location marker
+  // Update user location marker - runs when map is ready OR userLocation changes
   useEffect(() => {
-    if (!mapInstanceRef.current || !window.L || !userLocation) return;
+    if (!mapInstanceRef.current || !window.L) return;
 
-    // Remove old user marker
+    // Remove old user marker if it exists
     if (userMarkerRef.current) {
       mapInstanceRef.current.removeLayer(userMarkerRef.current);
+      userMarkerRef.current = null;
     }
+
+    // Only add marker if userLocation exists
+    if (!userLocation) return;
 
     // Create custom blue icon for user location with sleek design
     const userIcon = window.L.divIcon({
@@ -212,10 +218,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
 
     marker.bindPopup('<strong>Your Location</strong>');
     userMarkerRef.current = marker;
-
-    // Pan to user location
-    mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], 14);
-  }, [userLocation]);
+  }, [userLocation, leafletReady]); // Added leafletReady to re-run when map is initialized
 
   // Pan to search location when it becomes available
   useEffect(() => {
@@ -405,9 +408,7 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
 
       // Create tooltip content (shows on hover) with sleek design
       const displayName = getCarparkMapDisplayName(carpark, 28);
-
-
-      const carparkType = carpark.car_park_type ? carpark.car_park_type.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ') : '';
+      const carparkType = carpark.car_park_type ? formatCarparkType(carpark.car_park_type) : '';
       const tooltipContent = `
         <div style="padding: 12px; min-width: 240px; max-width: 300px;">
           <div style="margin-bottom: 8px;">
@@ -431,42 +432,14 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
           ` : ''}
           <div style="margin-bottom: 10px;">
             ${carpark.lotDetails && carpark.lotDetails.length > 0 ?
-          carpark.lotDetails.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0).map(lot => {
-            const getLotIcon = (lotType: string) => {
-              switch (lotType) {
-                case 'C': return '🚗';
-                case 'Y': return '🏍️';
-                case 'H': return '🚛';
-                default: return '🚗';
-              }
-            };
-
-            const getLotBgColor = (lotType: string) => {
-              switch (lotType) {
-                case 'C': return 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
-                case 'Y': return 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)';
-                case 'H': return 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)';
-                default: return 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
-              }
-            };
-
-            const getLotTextColor = (lotType: string) => {
-              switch (lotType) {
-                case 'C': return '#1e40af';
-                case 'Y': return '#166534';
-                case 'H': return '#c2410c';
-                default: return '#1e40af';
-              }
-            };
-
-            return `
+          carpark.lotDetails.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0).map(lot => `
                   <span style="
                     display: inline-flex;
                     align-items: center;
                     gap: 5px;
                     font-size: 12px;
                     padding: 4px 10px;
-                    background: ${getLotBgColor(lot.lot_type)};
+                    background: ${getLotGradient(lot.lot_type)};
                     color: ${getLotTextColor(lot.lot_type)};
                     border-radius: 6px;
                     font-weight: 600;
@@ -474,10 +447,9 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
                     margin-right: 6px;
                     margin-bottom: 6px;
                   ">
-                    ${getLotIcon(lot.lot_type)} ${lot.available_lots}/${lot.total_lots || 'N/A'}
+                    ${getLotEmoji(lot.lot_type)} ${lot.available_lots}/${lot.total_lots || 'N/A'}
                   </span>
-                `;
-          }).join('')
+                `).join('')
           : `
                 <span style="
                   display: inline-flex;
@@ -485,13 +457,13 @@ export function LeafletMap({ carparks, userLocation, selectedCarparkId, onCarpar
                   gap: 5px;
                   font-size: 12px;
                   padding: 4px 10px;
-                  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-                  color: #1e40af;
+                  background: ${getLotGradient('C')};
+                  color: ${getLotTextColor('C')};
                   border-radius: 6px;
                   font-weight: 600;
                   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
                 ">
-                  🚗 ${getCarparkAvailableLots(carpark)}/${getCarparkTotalLots(carpark) || 'N/A'}
+                  ${getLotEmoji('C')} ${getCarparkAvailableLots(carpark)}/${getCarparkTotalLots(carpark) || 'N/A'}
                 </span>
               `
         }

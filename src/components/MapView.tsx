@@ -8,9 +8,6 @@ import {
 import {
   MapPin,
   Navigation,
-  Car,
-  Motorbike,
-  Truck,
   Zap,
   Clock,
   DollarSign,
@@ -38,7 +35,9 @@ import { Label } from "./ui/label";
 import { Carpark, User, getCarparkAvailableLots, getCarparkTotalLots } from "../types";
 import { LeafletMap } from "./LeafletMap";
 
-import { getCarparkDisplayName } from "../utils/carpark";
+import { getCarparkDisplayName, formatCarparkType, getAvailabilityBgColor } from "../utils/carpark";
+import { getLotTypeLabel } from "../utils/lotTypes";
+import { LotDetailsDisplay } from "./LotDetailsDisplay";
 import { calculateDistance } from "../utils/distance";
 import { isPostalCode } from "../utils/postalCode";
 import { geocodePostalCode, geocodeSearch } from "../services/geocodingService";
@@ -244,22 +243,7 @@ export function MapView({
     )
   ).sort(), [carparks]);
 
-  // Memoize formatting functions
-  const formatLotType = useCallback((lotType: string): string => {
-    const lotTypeMap: Record<string, string> = {
-      'C': 'Car',
-      'Y': 'Motorcycle',
-      'H': 'Heavy Vehicle',
-    };
-    return lotTypeMap[lotType] || lotType;
-  }, []);
 
-  const formatCarparkType = useCallback((carparkType: string): string => {
-    return carparkType
-      .split(' ')
-      .map(word => word.charAt(0) + word.slice(1).toLowerCase())
-      .join(' ');
-  }, []);
 
   // Toggle lot type filter
   const toggleLotType = (lotType: string) => {
@@ -500,17 +484,6 @@ export function MapView({
     onSelectCarpark(carpark);
   };
 
-  const getAvailabilityColor = (
-    available: number,
-    total: number | null,
-  ) => {
-    if (total === null || total === 0) return "bg-gray-400";
-    const percentage = (available / total) * 100;
-    if (percentage > 30) return "bg-green-500";
-    if (percentage > 10) return "bg-yellow-500";
-    return "bg-red-500";
-  };
-
   return (
     <div className="flex h-full bg-background overflow-hidden relative">
       {/* Sidebar - Fixed height with internal scroll */}
@@ -643,7 +616,7 @@ export function MapView({
                           htmlFor={`lot-${lotType}`}
                           className="text-xs cursor-pointer flex-1"
                         >
-                          {formatLotType(lotType)}
+                          {getLotTypeLabel(lotType)}
                         </Label>
                       </div>
                     ))}
@@ -862,45 +835,7 @@ export function MapView({
                       <div className="flex items-center justify-between mb-2">
                         <div className="space-y-2">
                           {/* Lot Types Row */}
-                          <div className="flex flex-wrap gap-2">
-                            {carpark.lotDetails && carpark.lotDetails.length > 0 ? (
-                              carpark.lotDetails.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0).map((lot) => {
-                                const getLotIcon = (lotType: string) => {
-                                  switch (lotType) {
-                                    case 'C': return <Car className="w-3 h-3" />;
-                                    case 'Y': return <Motorbike className="w-3 h-3" />;
-                                    case 'H': return <Truck className="w-3 h-3" />;
-                                    default: return <Car className="w-3 h-3" />;
-                                  }
-                                };
-
-                                const getLotBgColor = (lotType: string) => {
-                                  switch (lotType) {
-                                    case 'C': return 'bg-blue-100 text-blue-800';
-                                    case 'Y': return 'bg-green-100 text-green-800';
-                                    case 'H': return 'bg-orange-100 text-orange-800';
-                                    default: return 'bg-blue-100 text-blue-800';
-                                  }
-                                };
-
-                                return (
-                                  <div key={lot.lot_type} className={`flex items-center gap-1 px-2 py-1 rounded text-xs ${getLotBgColor(lot.lot_type)}`}>
-                                    {getLotIcon(lot.lot_type)}
-                                    <span>
-                                      {lot.available_lots}/{lot.total_lots || 'N/A'}
-                                    </span>
-                                  </div>
-                                );
-                              })
-                            ) : (
-                              <div className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
-                                <Car className="w-3 h-3" />
-                                <span>
-                                  {getCarparkAvailableLots(carpark)}/N/A
-                                </span>
-                              </div>
-                            )}
-                          </div>
+                          <LotDetailsDisplay carpark={carpark} size="sm" />
 
                           {/* EV Row */}
                           {carpark.evLots > 0 && (
@@ -915,10 +850,10 @@ export function MapView({
                             // Use car lots (Type C) for marker color logic
                             const carLot = carpark.lotDetails?.find(lot => lot.lot_type === 'C');
                             if (carLot) {
-                              return getAvailabilityColor(carLot.available_lots, carLot.total_lots || null);
+                              return getAvailabilityBgColor(carLot.available_lots, carLot.total_lots || null);
                             }
                             // Fallback to overall availability
-                            return getAvailabilityColor(getCarparkAvailableLots(carpark), getCarparkTotalLots(carpark));
+                            return getAvailabilityBgColor(getCarparkAvailableLots(carpark), getCarparkTotalLots(carpark));
                           })()}`}
                         />
 

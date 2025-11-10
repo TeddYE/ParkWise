@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, MapPin, Car, Motorbike, Truck, Zap, Clock, DollarSign, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, Heart, Locate } from 'lucide-react';
+import { Search, MapPin, Zap, Clock, DollarSign, SlidersHorizontal, Loader2, ChevronLeft, ChevronRight, Heart, Locate } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -12,7 +12,8 @@ import { Carpark, User } from '../types';
 import { isPostalCode } from '../utils/postalCode';
 import { geocodePostalCode, GeocodingResult } from '../services/geocodingService';
 import { calculateDistance } from '../utils/distance';
-import { getCarparkDisplayName } from '../utils/carpark';
+import { getCarparkDisplayName, getAvailabilityTextColor } from '../utils/carpark';
+import { getLotIcon } from '../utils/lotTypes';
 import { useDebounce } from '../hooks/useDebounce';
 import { AdPlaceholder } from './ui/AdPlaceholder';
 
@@ -145,14 +146,6 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
   }, [carparksWithDistance, debouncedSearchQuery, geocodedLocation, maxDistance, maxPrice, isPremium, requireEV, selectedTypes, sortBy, showFavoritesOnly, user?.favoriteCarparks]);
 
   // Memoize utility functions
-  const getAvailabilityColor = useCallback((available: number, total: number | null) => {
-    // Since totals are now N/A, use absolute availability numbers for color coding
-    if (available > 50) return 'text-green-600';
-    if (available > 20) return 'text-yellow-600';
-    if (available > 0) return 'text-orange-600';
-    return 'text-red-600';
-  }, []);
-
   const handleToggleAdvanced = useCallback(() => {
     setShowAdvanced(!showAdvanced);
   }, [showAdvanced]);
@@ -448,29 +441,18 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
                     <div className="flex items-center gap-4">
                       <div className="flex flex-wrap items-center gap-2">
                         {carpark.lotDetails && carpark.lotDetails.length > 0 ? (
-                          carpark.lotDetails.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0).map((lot) => {
-                            const getLotIcon = (lotType: string) => {
-                              switch (lotType) {
-                                case 'C': return <Car className="w-4 h-4" />;
-                                case 'Y': return <Motorbike className="w-4 h-4" />;
-                                case 'H': return <Truck className="w-4 h-4" />;
-                                default: return <Car className="w-4 h-4" />;
-                              }
-                            };
-
-                            return (
-                              <div key={lot.lot_type} className="flex items-center gap-1">
-                                {getLotIcon(lot.lot_type)}
-                                <span className={`text-sm ${getAvailabilityColor(lot.available_lots, lot.total_lots || null)}`}>
-                                  {lot.available_lots}/{lot.total_lots || 'N/A'}
-                                </span>
-                              </div>
-                            );
-                          })
+                          carpark.lotDetails.filter(lot => ['C', 'Y', 'H'].includes(lot.lot_type) && lot.total_lots && lot.total_lots > 0).map((lot) => (
+                            <div key={lot.lot_type} className="flex items-center gap-1">
+                              {getLotIcon(lot.lot_type, 'md')}
+                              <span className={`text-sm ${getAvailabilityTextColor(lot.available_lots)}`}>
+                                {lot.available_lots}/{lot.total_lots || 'N/A'}
+                              </span>
+                            </div>
+                          ))
                         ) : (
                           <div className="flex items-center gap-2">
-                            <Car className="w-4 h-4" />
-                            <span className={`text-sm ${getAvailabilityColor(carpark.availableLots, carpark.totalLots)}`}>
+                            {getLotIcon('C', 'md')}
+                            <span className={`text-sm ${getAvailabilityTextColor(carpark.availableLots)}`}>
                               {carpark.availableLots}/N/A lots
                             </span>
                           </div>
