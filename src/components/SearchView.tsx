@@ -7,15 +7,16 @@ import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
 import { Slider } from './ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Carpark, User } from '../types';
+import { Carpark, User, getCarparkAvailableLots } from '../types';
 
 import { isPostalCode } from '../utils/postalCode';
-import { geocodePostalCode, GeocodingResult } from '../services/geocodingService';
+import { geocodePostalCode, geocodeSearch, GeocodingResult } from '../services/geocodingService';
 import { calculateDistance } from '../utils/distance';
 import { getCarparkDisplayName, getAvailabilityTextColor } from '../utils/carpark';
 import { getLotIcon } from '../utils/lotTypes';
 import { useDebounce } from '../hooks/useDebounce';
 import { AdPlaceholder } from './ui/AdPlaceholder';
+import { toast } from 'sonner';
 
 interface SearchViewProps {
   onSelectCarpark: (carpark: Carpark) => void;
@@ -51,18 +52,68 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
 
 
 
-  // Handle postal code geocoding
-  useEffect(() => {
-    const trimmedQuery = debouncedSearchQuery.trim();
-
-    // Reset geocoding state if query is not a postal code
-    if (!isPostalCode(trimmedQuery)) {
+  // Handle search (postal code or general location)
+  const handleSearch = useCallback(async () => {
+    const trimmedQuery = searchQuery.trim();
+    
+    if (!trimmedQuery) {
       setGeocodedLocation(null);
       setGeocodingError('');
       return;
     }
 
-    // Debounce the geocoding request
+    setGeocodingLoading(true);
+    setGeocodingError('');
+
+    try {
+      // Check if it's a postal code
+      if (isPostalCode(trimmedQuery)) {
+        const response = await geocodePostalCode(trimmedQuery);
+
+        if (response.error) {
+          setGeocodingError(response.error);
+          setGeocodedLocation(null);
+          toast.error(response.error);
+        } else if (response.result) {
+          setGeocodedLocation(response.result);
+          setGeocodingError('');
+          toast.success(`Found location: ${response.result.address}`);
+        }
+      } else {
+        // General search (address, place name, etc.)
+        const response = await geocodeSearch(trimmedQuery);
+
+        if (response.error) {
+          setGeocodingError(response.error);
+          setGeocodedLocation(null);
+          toast.error(response.error);
+        } else if (response.result) {
+          setGeocodedLocation(response.result);
+          setGeocodingError('');
+          toast.success(`Found location: ${response.result.address}`);
+        }
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setGeocodingError('Failed to search. Please try again.');
+      toast.error('Failed to search. Please try again.');
+    } finally {
+      setGeocodingLoading(false);
+    }
+  }, [searchQuery]);
+
+  // Auto-geocode postal codes as user types
+  useEffect(() => {
+    const trimmedQuery = debouncedSearchQuery.trim();
+
+    // Only auto-geocode postal codes, not general searches
+    if (!isPostalCode(trimmedQuery)) {
+      // Don't clear geocoded location if user is typing a general search
+      // They need to press the search button for general searches
+      return;
+    }
+
+    // Debounce the geocoding request for postal codes
     const timeoutId = setTimeout(async () => {
       setGeocodingLoading(true);
       setGeocodingError('');
@@ -82,6 +133,13 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
 
     return () => clearTimeout(timeoutId);
   }, [debouncedSearchQuery]);
+
+  // Clear search
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+    setGeocodedLocation(null);
+    setGeocodingError('');
+  }, []);
 
   // Memoize distance calculations
   const carparksWithDistance = useMemo(() => {
@@ -132,7 +190,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
           case 'price': return a.rates.hourly - b.rates.hourly;
           case 'availability': {
             // Sort by absolute available lots since totals are now N/A
-            return b.availableLots - a.availableLots;
+            return getCarparkAvailableLots(b) - getCarparkAvailableLots(a);
           }
           case 'distance':
           default:
@@ -206,17 +264,42 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
           <h1 className="text-2xl mb-4">Find Parking</h1>
 
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <div className="flex-1 relative">
-              <Input
-                placeholder="Search by location, name, or postal code..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full"
-              />
-              {geocodingLoading && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                </div>
+            <div className="flex-1 flex gap-2">
+              <div className="flex-1 relative">
+                <Input
+                  placeholder="Search by location, name, or postal code..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch();
+                    }
+                  }}
+                  className="w-full"
+                />
+                {geocodingLoading && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleSearch}
+                disabled={geocodingLoading || !searchQuery.trim()}
+                className="flex items-center gap-2"
+              >
+                <Search className="w-4 h-4" />
+                <span className="hidden sm:inline">Search</span>
+              </Button>
+              {geocodedLocation && (
+                <Button
+                  variant="ghost"
+                  onClick={clearSearch}
+                  className="flex items-center gap-2"
+                >
+                  Clear
+                </Button>
               )}
             </div>
             <div className="flex gap-2">
@@ -452,8 +535,8 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
                         ) : (
                           <div className="flex items-center gap-2">
                             {getLotIcon('C', 'md')}
-                            <span className={`text-sm ${getAvailabilityTextColor(carpark.availableLots)}`}>
-                              {carpark.availableLots}/N/A lots
+                            <span className={`text-sm ${getAvailabilityTextColor(getCarparkAvailableLots(carpark))}`}>
+                              {getCarparkAvailableLots(carpark)}/N/A lots
                             </span>
                           </div>
                         )}
