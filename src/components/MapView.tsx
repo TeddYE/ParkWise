@@ -959,7 +959,7 @@ export function MapView({
             <Card className="max-w-sm">
               <CardContent className="p-4 text-center">
                 <p className="text-sm text-muted-foreground mb-2">
-                  🎯 Want smarter recommendations?
+                  🎯 Want more features?
                 </p>
                 <Button
                   size="sm"
@@ -995,14 +995,6 @@ export function MapView({
               className={`w-4 h-4 ${isLoadingLocation ? "animate-spin" : ""}`}
             />
           </div>
-          <Button
-            size="icon"
-            variant="outline"
-            className="bg-white"
-            title="Navigate"
-          >
-            <Navigation className="w-4 h-4" />
-          </Button>
         </div>
 
         {/* Quick Actions */}
@@ -1015,15 +1007,6 @@ export function MapView({
             >
               Advanced Search
             </Button>
-            {isPremium && (
-              <Button
-                variant="outline"
-                className="bg-white"
-                onClick={() => onViewChange("premium")}
-              >
-                Smart Recommendations
-              </Button>
-            )}
           </div>
         </div>
       </div>

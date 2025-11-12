@@ -14,7 +14,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { useDrivingTimes } from "./hooks/useDrivingTimes";
 import { User, ViewType, Carpark } from "./types";
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { CarparkService } from "./services/carparkService";
 
 function AppContent() {
@@ -35,6 +35,7 @@ function AppContent() {
   // Simplified location state - no persistence, no continuous tracking
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const locationRequestedRef = useRef(false);
 
   // Local carparks data management (replacing deleted useCarparks)
   const [apiCarparks, setApiCarparks] = useState<Carpark[]>([]);
@@ -104,7 +105,10 @@ function AppContent() {
 
   // Automatically request location on app startup
   useEffect(() => {
-    getUserLocation();
+    if (!locationRequestedRef.current) {
+      locationRequestedRef.current = true;
+      getUserLocation();
+    }
   }, []); // Run once on mount
 
   // Simple location function - get location once
@@ -295,15 +299,6 @@ function AppContent() {
             onUpdateUser={updateUser}
           />
         )}
-        
-        {/* Debug info */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-4 right-4 bg-black text-white p-2 text-xs rounded">
-            View: {currentView} | Selected: {selectedCarpark?.id || 'none'}
-          </div>
-        )}
-
-
 
         {currentView === "pricing" && (
           <PricingView

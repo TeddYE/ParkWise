@@ -33,7 +33,6 @@ interface SearchViewProps {
 export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, userLocation, onGetUserLocation, isLoadingLocation, carparks, isLoadingCarparks }: SearchViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [maxDistance, setMaxDistance] = useState([5]);
-  const [maxPrice, setMaxPrice] = useState([10]);
   const [requireEV, setRequireEV] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('distance');
@@ -174,7 +173,6 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
           }
         }
         if (carpark.distance !== undefined && carpark.distance > maxDistance[0]) return false;
-        if (carpark.rates.hourly > maxPrice[0]) return false;
         if (isPremium && requireEV && carpark.evLots === 0) return false;
         if (isPremium && selectedTypes.length > 0) {
           // Check if carpark has the selected lot type with capacity > 0
@@ -201,7 +199,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
             return a.distance - b.distance;
         }
       });
-  }, [carparksWithDistance, debouncedSearchQuery, geocodedLocation, maxDistance, maxPrice, isPremium, requireEV, selectedTypes, sortBy, showFavoritesOnly, user?.favoriteCarparks]);
+  }, [carparksWithDistance, debouncedSearchQuery, geocodedLocation, maxDistance, isPremium, requireEV, selectedTypes, sortBy, showFavoritesOnly, user?.favoriteCarparks]);
 
   // Memoize utility functions
   const handleToggleAdvanced = useCallback(() => {
@@ -210,7 +208,6 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
 
   const handleResetFilters = useCallback(() => {
     setMaxDistance([10]);
-    setMaxPrice([15]);
     setRequireEV(false);
     setSelectedTypes([]);
     setShowFavoritesOnly(false);
@@ -221,7 +218,7 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchQuery, maxDistance, maxPrice, requireEV, selectedTypes, sortBy, geocodedLocation, showFavoritesOnly]);
+  }, [debouncedSearchQuery, maxDistance, requireEV, selectedTypes, sortBy, geocodedLocation, showFavoritesOnly]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredCarparks.length / itemsPerPage);
@@ -378,19 +375,6 @@ export function SearchView({ onSelectCarpark, onViewChange, isPremium, user, use
                       onValueChange={setMaxDistance}
                       max={10}
                       min={0.5}
-                      step={0.5}
-                      className="w-full"
-                    />
-                  </div>
-
-                  {/* Price */}
-                  <div>
-                    <label className="text-sm mb-2 block">Max Price: S${maxPrice[0]}/30min</label>
-                    <Slider
-                      value={maxPrice}
-                      onValueChange={setMaxPrice}
-                      max={15}
-                      min={1}
                       step={0.5}
                       className="w-full"
                     />
