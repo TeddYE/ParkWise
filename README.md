@@ -6,8 +6,6 @@
 
 A smart carpark availability and prediction platform for Singapore, helping drivers find available parking spots with real-time data, pricing information, and AI-powered availability predictions.
 
-**[🚀 ParkWise](https://teddye.github.io/ParkWise/)**
-
 ---
 
 ## Table of Contents
